@@ -31,3 +31,6 @@ export {
   compositeOver,
   runAudit,
 } from './audit/index.js';
+
+export type { ReportData } from './export/report.js';
+export { generateHtmlReport, generateJsonReport } from './export/report.js';

@@ -31,11 +31,25 @@ pnpm build       # compile packages/* to dist/
 pnpm dev         # start the web UI (needs vite, see below)
 ```
 
-Try the engine through the CLI:
+Audit a style:
 
 ```bash
-pnpm build && node packages/cli/bin/carto-a11y.js contrast '#767676' '#ffffff'
+pnpm build && node packages/cli/bin/carto-a11y.js audit packages/cli/test/fixtures/test-style.json
 ```
+
+```
+✓ 5 pairs pass (dE ≥ 10 in all modes)
+✗ 1 pair FAILS
+
+Failing pairs:
+  parks ↔ industrial  protan  dE=0.19  contrast=1.01:1
+```
+
+`--format json|html` swaps the summary for a machine-readable report or a
+self-contained HTML page with swatches and a vision-mode preview; `--output`
+writes it to a file. `--threshold`, `--background` and `--modes` tune the
+audit. The command exits 0 when nothing is confusable, 1 when something is,
+and 2 when it could not run — so it drops into CI as a check.
 
 ## State of the scaffold
 

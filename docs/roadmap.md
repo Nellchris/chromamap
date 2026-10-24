@@ -18,6 +18,11 @@
   per vision mode, with failure counts.
 - CLI uses core's `parseColor`, so `carto-a11y contrast` takes names and
   `rgb()` as well as hex.
+- `core/export/report.ts` — `generateJsonReport` and `generateHtmlReport`; the
+  HTML page is self-contained, with swatches and a CSS-only vision-mode
+  preview built on inline `feColorMatrix` filters.
+- `carto-a11y audit <style.json>` — the whole pipeline from the command line,
+  in summary, JSON or HTML, exiting 1 when a pair is confusable.
 
 ## Next
 
@@ -34,12 +39,10 @@
    number the engine already computes into a pass/fail of its own.
 5. **Partial CVD severities** — the Machado matrices are published at 0.1
    steps; interpolate for severity < 1.0.
-6. **Audit report** — findings with severity, layer path and suggested fix;
-   JSON and human-readable formatters shared by CLI and web.
-7. **`carto-a11y audit <style.json>`** — wire the engine into the CLI, with a
-   non-zero exit code when a class pair fails.
-8. **Adapters** — load styles from a URL or file so the CLI and web share one
-   loader (`packages/adapters` is still interfaces only).
+6. **Suggested fixes** — the report says which pairs collapse, not what to do
+   about them; propose a nearby colour that clears the threshold in every mode.
+7. **Adapters** — load styles from a URL as well as a path, so the CLI and web
+   share one loader (`packages/adapters` is still interfaces only).
 9. **Web UI** — add vite, render a map alongside live audit findings.
 10. **Hawaii demo** — real data and styles under `demos/hawaii` driving an
     end-to-end example.

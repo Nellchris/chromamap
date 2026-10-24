@@ -10,7 +10,9 @@
   on nothing in the workspace.
 - **`@carto-a11y/cli`** — argument parsing and report formatting. `src/` stays
   Node-global-free so it is testable; `bin/carto-a11y.js` is the only file that
-  touches `process`.
+  touches `process` and `node:fs`. Commands that need the filesystem take a
+  `CliIo` instead of importing it, which is how `audit` reads a style and
+  writes a report while the tests use an in-memory stand-in.
 - **`@carto-a11y/web`** — the browser UI. Imports core directly; during
   development TypeScript resolves it to core's sources through `paths`, and
   Vite resolves the workspace link.
@@ -29,6 +31,8 @@ Core is layered, and each layer only reaches downwards:
   cannot resolve rather than guessing.
 - `audit/` — `compositeOver` flattens opacity onto a background, and `runAudit`
   walks the class list pairwise under each vision mode.
+- `export/` — turns one audit into a JSON document or a self-contained HTML
+  page. Both read the same `ReportData`, so they can never disagree.
 
 So a style audit is a pipeline: `extractClasses` → `compositeOver` →
 `simulateCVD` → `ciede2000` / `contrastRatio`. Each step is exported on its
