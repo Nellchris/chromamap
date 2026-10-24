@@ -5,7 +5,13 @@
     "declaration": false,
     "declarationMap": false,
     "noEmit": true,
-    "rootDir": "."
+    // Typechecking resolves the engine to its sources, so `pnpm lint` works on
+    // a clean checkout without core having been built first. The build config
+    // keeps using the project reference and core's emitted declarations.
+    "rootDir": "../..",
+    "paths": {
+      "@carto-a11y/core": ["../core/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

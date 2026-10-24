@@ -5,7 +5,7 @@
  * `bin/carto-a11y.js` is the thin shim that wires it to `process`.
  */
 
-import { contrastRatio, relativeLuminance } from '@carto-a11y/core';
+import { contrastRatio, parseColor, relativeLuminance } from '@carto-a11y/core';
 
 /** What the shim needs in order to print and exit. */
 export interface CliResult {
@@ -16,23 +16,11 @@ export interface CliResult {
 const USAGE = `carto-a11y — web-map accessibility auditing
 
 Usage:
-  carto-a11y contrast <#rrggbb> <#rrggbb>   WCAG 2.1 contrast ratio of two colours
-  carto-a11y --help                         Show this message
-`;
+  carto-a11y contrast <colour> <colour>   WCAG 2.1 contrast ratio of two colours
+  carto-a11y --help                       Show this message
 
-/** Parse `#rrggbb` (or `rrggbb`) into sRGB channels in 0..1. */
-export function parseHexColor(input: string): readonly [number, number, number] {
-  const hex = input.startsWith('#') ? input.slice(1) : input;
-  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
-    throw new Error(`not a #rrggbb colour: ${input}`);
-  }
-  const int = Number.parseInt(hex, 16);
-  return [
-    ((int >> 16) & 0xff) / 255,
-    ((int >> 8) & 0xff) / 255,
-    (int & 0xff) / 255,
-  ];
-}
+Colours may be hex (#abc, #aabbcc), rgb()/rgba(), or any CSS colour name.
+`;
 
 /** Run the CLI over already-sliced arguments (no program name, no flags file). */
 export function run(argv: readonly string[]): CliResult {
@@ -48,8 +36,8 @@ export function run(argv: readonly string[]): CliResult {
       return { output: `error: contrast needs two colours\n\n${USAGE}`, exitCode: 2 };
     }
     try {
-      const [r1, g1, b1] = parseHexColor(first);
-      const [r2, g2, b2] = parseHexColor(second);
+      const [r1, g1, b1] = parseColor(first);
+      const [r2, g2, b2] = parseColor(second);
       const ratio = contrastRatio(
         relativeLuminance(r1, g1, b1),
         relativeLuminance(r2, g2, b2),

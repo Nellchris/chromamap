@@ -20,3 +20,14 @@ export { D65_WHITE, ciede2000, rgbToLab, srgbToXyz, xyzToLab } from './color/lab
 
 export type { CVDType, Matrix3x3 } from './color/cvd.js';
 export { CVD_MATRICES, simulateCVD } from './color/cvd.js';
+
+export type { MapClass } from './style/extract.js';
+export { extractClasses } from './style/extract.js';
+
+export type { AuditOptions, AuditPair, AuditResult, VisionMode } from './audit/index.js';
+export {
+  DEFAULT_THRESHOLD,
+  VISION_MODES,
+  compositeOver,
+  runAudit,
+} from './audit/index.js';

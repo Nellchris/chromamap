@@ -11,24 +11,35 @@
   against Sharma et al. (2005).
 - `core/color/cvd.ts` — Machado et al. (2009) dichromacy simulation at
   severity 1.0.
+- `core/style/extract.ts` — static colour extraction from MapLibre style JSON:
+  plain strings, legacy stop functions and `match` branches.
+- `core/audit/composite.ts` — source-over compositing for translucent layers.
+- `core/audit/engine.ts` — `runAudit`: pairwise CIEDE2000 and WCAG contrast
+  per vision mode, with failure counts.
+- CLI uses core's `parseColor`, so `carto-a11y contrast` takes names and
+  `rgb()` as well as hex.
 
 ## Next
 
-1. **Retire the CLI's own hex parser** — `packages/cli/src/index.ts` still has
-   `parseHexColor`; switch it to `parseColor` so the CLI accepts named colours
-   and `rgb()` too.
-2. **Remaining colour syntax** — `hsl()`, 4- and 8-digit hex, and the
+1. **More style syntax** — `case`, `step` and `interpolate` expressions, which
+   extraction currently skips because they have no single static value;
+   `background-color` and `fill-outline-color` as classes.
+2. **Layer stacking** — classes are composited over one flat background, not
+   over the layers beneath them, so a translucent fill above water is judged
+   against white rather than against the water.
+3. **Remaining colour syntax** — `hsl()`, 4- and 8-digit hex, and the
    space-separated `rgb(r g b / a)` form.
-3. **Contrast rules** — WCAG AA/AAA thresholds for text, large text and
-   non-text (3:1) contrast, as named, reportable checks.
-4. **Palette confusion scoring** — pairwise CIEDE2000 across a palette under
-   each dichromacy, flagging pairs that collapse below a threshold.
+4. **Contrast rules** — WCAG AA/AAA thresholds for text, large text and
+   non-text (3:1) contrast, as named, reportable checks; fold the contrast
+   number the engine already computes into a pass/fail of its own.
 5. **Partial CVD severities** — the Machado matrices are published at 0.1
    steps; interpolate for severity < 1.0.
-6. **Style adapter** — read MapLibre/Mapbox style JSON into a layer/paint model
-   the engine can walk.
-7. **Audit report** — findings with severity, layer path and suggested fix;
+6. **Audit report** — findings with severity, layer path and suggested fix;
    JSON and human-readable formatters shared by CLI and web.
-8. **Web UI** — add vite, render a map alongside live audit findings.
-9. **Hawaii demo** — real data and styles under `demos/hawaii` driving an
-   end-to-end example.
+7. **`carto-a11y audit <style.json>`** — wire the engine into the CLI, with a
+   non-zero exit code when a class pair fails.
+8. **Adapters** — load styles from a URL or file so the CLI and web share one
+   loader (`packages/adapters` is still interfaces only).
+9. **Web UI** — add vite, render a map alongside live audit findings.
+10. **Hawaii demo** — real data and styles under `demos/hawaii` driving an
+    end-to-end example.
