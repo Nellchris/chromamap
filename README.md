@@ -39,9 +39,16 @@ pnpm build && node packages/cli/bin/carto-a11y.js contrast '#767676' '#ffffff'
 
 ## State of the scaffold
 
-The engine ships its first real module, `packages/core/src/color/wcag.ts`:
-sRGB linearisation, WCAG 2.1 relative luminance and contrast ratio, with tests
-in `packages/core/test/color/wcag.test.ts`.
+The engine's colour layer is in place under `packages/core/src/color/`:
+
+- `wcag.ts` — sRGB linearisation, WCAG 2.1 relative luminance, contrast ratio
+- `parse.ts` — hex, `rgb()`/`rgba()` and all 148 CSS Color 4 named colours
+- `lab.ts` — sRGB → XYZ (D65) → CIELAB, and CIEDE2000 perceptual distance
+- `cvd.ts` — Machado et al. (2009) dichromacy simulation at severity 1.0
+
+Each has a matching suite under `packages/core/test/color/`, checked against
+published reference values where they exist (Sharma et al. for CIEDE2000, the
+CSS spec for named colours).
 
 `apps/web` is scaffolded (entry HTML, `src/main.ts`, `vite.config.ts`) but
 **vite is not installed yet** — the dependency list is deliberately limited to
