@@ -1,0 +1,23 @@
+{
+  "name": "carto-a11y-studio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CartoAccessibility-Studio — web-map accessibility and colour-vision auditing.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.34.8",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm --filter \"./packages/*\" run build",
+    "test": "pnpm -r run test",
+    "lint": "pnpm -r run lint",
+    "dev": "pnpm --filter @carto-a11y/web run dev",
+    "clean": "pnpm -r exec node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

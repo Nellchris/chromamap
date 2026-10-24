@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+  - apps/*
+
+# Single source of truth for shared tool versions across the workspace.
+# Packages reference these with "catalog:" so every package resolves the same
+# vitest / typescript, and each package still gets its own node_modules/.bin.
+catalog:
+  typescript: ^7.0.2
+  vitest: ^5.0.5

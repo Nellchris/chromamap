@@ -1,0 +1,35 @@
+{
+  "name": "@carto-a11y/cli",
+  "version": "0.0.0",
+  "description": "Command-line interface for CartoAccessibility-Studio audits.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "carto-a11y": "./bin/carto-a11y.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc -p tsconfig.spec.json"
+  },
+  "dependencies": {
+    "@carto-a11y/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
