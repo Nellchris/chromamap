@@ -19,6 +19,9 @@
 
 import { parseColor, type RGB } from '../color/parse.js';
 
+/** What a style is drawn on when it names no background of its own. */
+const PAPER_WHITE: RGB = [1, 1, 1];
+
 /** One paintable thing in a style: a layer, or one branch of a match. */
 export interface MapClass {
   /**
@@ -33,6 +36,16 @@ export interface MapClass {
   type: 'fill' | 'line' | 'text' | 'circle';
   /** The matching `*-opacity`, or 1 when absent or not statically resolvable. */
   opacity: number;
+  /**
+   * A readable name for this class, when the style carries one.
+   *
+   * Only available when the layer's source holds its GeoJSON inline: the
+   * features are then searched for the one this class paints, and a `name`,
+   * `unit_name`, `label` or similar property is taken from it. A source given
+   * as a URL cannot be read here - extraction never fetches - so the name
+   * stays undefined and callers fall back to the id.
+   */
+  displayName?: string;
 }
 
 /** The paint properties that carry a colour, and what they map to. */
@@ -87,18 +100,19 @@ function labelToIdFragment(label: unknown): string {
  */
 function matchBranches(
   expression: readonly unknown[],
-): ReadonlyArray<{ readonly label: string; readonly output: unknown }> {
-  const branches: Array<{ label: string; output: unknown }> = [];
+): ReadonlyArray<{ readonly label: string; readonly raw: unknown; readonly output: unknown }> {
+  const branches: Array<{ label: string; raw: unknown; output: unknown }> = [];
   let index = 2;
   while (index + 1 < expression.length) {
     branches.push({
       label: labelToIdFragment(expression[index]),
+      raw: expression[index],
       output: expression[index + 1],
     });
     index += 2;
   }
   if (index === expression.length - 1) {
-    branches.push({ label: 'default', output: expression[index] });
+    branches.push({ label: 'default', raw: undefined, output: expression[index] });
   }
   return branches;
 }
@@ -133,6 +147,90 @@ function resolveOpacity(value: unknown): number {
   return 1;
 }
 
+/** Properties a feature might carry its readable name under. */
+const NAME_KEYS = [
+  'name',
+  'NAME',
+  'unit_name',
+  'UNIT_NAME',
+  'unitname',
+  'label',
+  'LABEL',
+  'title',
+  'description',
+] as const;
+
+/** The readable name on a feature, if it has one. */
+function featureName(feature: unknown): string | undefined {
+  if (!isRecord(feature)) {
+    return undefined;
+  }
+  const properties = feature['properties'];
+  if (!isRecord(properties)) {
+    return undefined;
+  }
+  for (const key of NAME_KEYS) {
+    const value = properties[key];
+    if (typeof value === 'string' && value.trim() !== '') {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+/** Inline GeoJSON features per source id; sources given as a URL are skipped. */
+function inlineFeatures(style: Record<string, unknown>): Map<string, readonly unknown[]> {
+  const bySource = new Map<string, readonly unknown[]>();
+  const sources = style['sources'];
+  if (!isRecord(sources)) {
+    return bySource;
+  }
+  for (const [id, source] of Object.entries(sources)) {
+    if (!isRecord(source) || source['type'] !== 'geojson') {
+      continue;
+    }
+    const data = source['data'];
+    if (!isRecord(data)) {
+      // A URL. Extraction never fetches, so there is nothing to read here.
+      continue;
+    }
+    const features = data['features'];
+    if (Array.isArray(features)) {
+      bySource.set(id, features);
+    }
+  }
+  return bySource;
+}
+
+/** The feature property a match expression switches on, if it is a plain get. */
+function matchInputProperty(expression: readonly unknown[]): string | undefined {
+  const input = expression[1];
+  if (Array.isArray(input) && input[0] === 'get' && typeof input[1] === 'string') {
+    return input[1];
+  }
+  // The legacy form names the property directly.
+  return typeof input === 'string' ? input : undefined;
+}
+
+/** The name of the first feature whose `property` equals `label`. */
+function nameForLabel(
+  features: readonly unknown[],
+  property: string,
+  label: unknown,
+): string | undefined {
+  const wanted = Array.isArray(label) ? (label as unknown[])[0] : label;
+  for (const feature of features) {
+    if (!isRecord(feature)) {
+      continue;
+    }
+    const properties = feature['properties'];
+    if (isRecord(properties) && String(properties[property]) === String(wanted)) {
+      return featureName(feature);
+    }
+  }
+  return undefined;
+}
+
 /** Layers hidden by `layout.visibility` paint nothing, so they are skipped. */
 function isHidden(layer: Record<string, unknown>): boolean {
   const layout = layer['layout'];
@@ -147,6 +245,36 @@ function isHidden(layer: Record<string, unknown>): boolean {
  *   classes found".
  * @returns One {@link MapClass} per resolvable colour, in layer order.
  */
+/**
+ * The colour a style paints behind everything else.
+ *
+ * A `background` layer is not a class - nothing else is compared against it -
+ * but it is what every translucent class ends up composited over, so an audit
+ * of a style should use it rather than assuming white paper.
+ *
+ * @param style - Parsed style JSON.
+ * @returns The first `background-color` found, or white.
+ */
+export function extractBackground(style: unknown): RGB {
+  if (!isRecord(style) || !Array.isArray(style['layers'])) {
+    return [...PAPER_WHITE];
+  }
+  for (const layer of style['layers'] as readonly unknown[]) {
+    if (!isRecord(layer) || isHidden(layer)) {
+      continue;
+    }
+    const paint = layer['paint'];
+    if (!isRecord(paint)) {
+      continue;
+    }
+    const colour = resolveColor(paint['background-color']);
+    if (colour !== undefined) {
+      return colour;
+    }
+  }
+  return [...PAPER_WHITE];
+}
+
 export function extractClasses(style: unknown): MapClass[] {
   if (!isRecord(style) || !Array.isArray(style['layers'])) {
     return [];
@@ -154,6 +282,15 @@ export function extractClasses(style: unknown): MapClass[] {
 
   const layers: readonly unknown[] = style['layers'];
   const classes: MapClass[] = [];
+  const featuresBySource = inlineFeatures(style);
+
+  /** Attach a readable name only when one was actually found. */
+  const withName = (cls: MapClass, name: string | undefined): MapClass => {
+    if (name !== undefined) {
+      cls.displayName = name;
+    }
+    return cls;
+  };
 
   for (const [index, rawLayer] of layers.entries()) {
     if (!isRecord(rawLayer) || isHidden(rawLayer)) {
@@ -165,6 +302,9 @@ export function extractClasses(style: unknown): MapClass[] {
         ? rawLayer['id']
         : `layer-${String(index)}`;
     const paint = isRecord(rawLayer['paint']) ? rawLayer['paint'] : {};
+    const sourceId = rawLayer['source'];
+    const features =
+      typeof sourceId === 'string' ? featuresBySource.get(sourceId) : undefined;
 
     const present = PAINT_PROPERTIES.filter(
       (property) => paint[property.colorKey] !== undefined,
@@ -178,10 +318,17 @@ export function extractClasses(style: unknown): MapClass[] {
       const value = paint[colorKey];
 
       if (isMatchExpression(value)) {
-        for (const { label, output } of matchBranches(value)) {
+        const property = matchInputProperty(value);
+        for (const { label, raw, output } of matchBranches(value)) {
           const color = resolveColor(output);
           if (color !== undefined) {
-            classes.push({ id: `${baseId}/${label}`, color, type, opacity });
+            const name =
+              features === undefined || property === undefined || raw === undefined
+                ? undefined
+                : nameForLabel(features, property, raw);
+            classes.push(
+              withName({ id: `${baseId}/${label}`, color, type, opacity }, name),
+            );
           }
         }
         continue;

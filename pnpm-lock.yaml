@@ -25,6 +25,10 @@ catalogs:
 importers:
 
   .:
+    dependencies:
+      '@carto-a11y/core':
+        specifier: workspace:*
+        version: link:packages/core
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

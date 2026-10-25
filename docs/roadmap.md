@@ -25,7 +25,15 @@
   in summary, JSON or HTML, exiting 1 when a pair is confusable.
 - Hawaiʻi demo — `scripts/fetch-hawaii.ts`, 15 geological units, a USGS-style
   baseline style, and its audit. See [../demos/hawaii](../demos/hawaii).
-- `apps/web` — MapLibre map, live audit panel, CVD preview over the map.
+- `apps/web` — MapLibre map, live audit panel, CVD preview over the map, and a
+  before/after switch between the baseline and remediated styles.
+- `core/remediate/palette.ts` — `generateAccessiblePalette`: respace a palette
+  through lightness, nudging hues where pairs still clash. 48 clashes to 4 on
+  the Hawaiʻi demo.
+- `core/color/lab.ts` — the inverse direction: `labToXyz`, `xyzToSrgb` and
+  `labToRgb`, which maps an out-of-gamut colour in by dropping chroma rather
+  than clipping channels.
+- `MapClass.displayName`, filled in from an inline GeoJSON source.
 
 ## Next
 
@@ -50,9 +58,9 @@
    about them; propose a nearby colour that clears the threshold in every mode.
 7. **Adapters** — load styles from a URL as well as a path, so the CLI and web
    share one loader (`packages/adapters` is still interfaces only).
-8. **An accessible counterpart style** — `demos/hawaii/styles/accessible.json`,
-   a repalette of the baseline that clears the threshold in every mode, so the
-   demo shows a before *and* an after. This is the obvious next demo step.
+8. **Beyond colour** — four pairs on the Hawaiʻi demo cannot be separated by
+   colour at eighteen classes, whatever the palette. Audit and suggest the
+   other channels: hatching and pattern fills, outline weight, labels.
 9. **Slimmer JSON reports** — `audit-baseline.json` is 450 kB because every
    pair embeds both class objects in full; reference them by id instead.
 9b. **Display names in reports** — the web app reads real unit names out of

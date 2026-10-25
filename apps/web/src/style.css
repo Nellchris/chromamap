@@ -210,6 +210,57 @@ body {
   outline-offset: 2px;
 }
 
+/* ---- before / after switch ---- */
+
+.panel-first {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.segmented {
+  display: flex;
+  background: var(--sidebar-bg-2);
+  border: 1px solid var(--sidebar-line);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.segment {
+  flex: 1;
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.segment:hover {
+  color: var(--ink);
+}
+
+.segment.is-selected {
+  background: var(--accent);
+  color: #0d1326;
+  font-weight: 500;
+}
+
+.segment:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.segmented + .note {
+  margin: 8px 0 0;
+}
+
 /* ---- the verdict, which leads the panel ---- */
 
 .verdict {
@@ -281,6 +332,12 @@ body {
   margin: 8px 0 0;
   font-size: 12px;
   color: var(--ink-3);
+}
+
+.verdict-change {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--good);
 }
 
 /* ---- lists ---- */

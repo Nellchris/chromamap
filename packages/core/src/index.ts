@@ -16,13 +16,22 @@ export type { RGB } from './color/parse.js';
 export { CSS_NAMED_COLORS, parseColor, rgbToHex } from './color/parse.js';
 
 export type { Lab } from './color/lab.js';
-export { D65_WHITE, ciede2000, rgbToLab, srgbToXyz, xyzToLab } from './color/lab.js';
+export {
+  D65_WHITE,
+  ciede2000,
+  labToRgb,
+  labToXyz,
+  rgbToLab,
+  srgbToXyz,
+  xyzToLab,
+  xyzToSrgb,
+} from './color/lab.js';
 
 export type { CVDType, Matrix3x3 } from './color/cvd.js';
 export { CVD_MATRICES, simulateCVD } from './color/cvd.js';
 
 export type { MapClass } from './style/extract.js';
-export { extractClasses } from './style/extract.js';
+export { extractBackground, extractClasses } from './style/extract.js';
 
 export type { AuditOptions, AuditPair, AuditResult, VisionMode } from './audit/index.js';
 export {
@@ -34,6 +43,13 @@ export {
 
 export type { ReportData } from './export/report.js';
 export { generateHtmlReport, generateJsonReport } from './export/report.js';
+
+export type { RemediationResult } from './remediate/palette.js';
+export {
+  REMEDIATION_LIGHTNESS,
+  closestPair,
+  generateAccessiblePalette,
+} from './remediate/palette.js';
 
 export type { PlainSummary, VerdictLevel } from './export/language.js';
 export {

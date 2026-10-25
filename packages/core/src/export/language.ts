@@ -151,17 +151,22 @@ export function summariseAudit(
 }
 
 /**
- * Turn a class id into something readable.
+ * Turn a class, or a bare class id, into something readable.
  *
- * Ids come from the style - `geologic-units/Qkh`, `unit-contacts`,
- * `labels:text` - and are the best name available when nothing better is
- * known. A caller that does have better names (the demo reads them out of its
- * GeoJSON) should prefer those and fall back to this.
+ * A class that carries a `displayName` - because its style held its GeoJSON
+ * inline, or because a caller filled one in from data it fetched itself -
+ * uses that. Otherwise the id is tidied up: `geologic-units/Qkh`,
+ * `unit-contacts` and `labels:text` are the best names available when nothing
+ * better is known.
  *
- * @param id - The class id.
+ * @param id - The class, or just its id.
  * @returns A human-facing name.
  */
-export function humaniseClassId(id: string): string {
+export function humaniseClassId(id: string | MapClass): string {
+  if (typeof id !== 'string') {
+    const named = id.displayName;
+    return named !== undefined && named.trim() !== '' ? named : humaniseClassId(id.id);
+  }
   const slash = id.lastIndexOf('/');
   const layer = slash === -1 ? id : id.slice(0, slash);
   const value = slash === -1 ? undefined : id.slice(slash + 1);

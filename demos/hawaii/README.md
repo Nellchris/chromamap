@@ -7,7 +7,9 @@ accessibility audit has to say about it.
 | ---- | ---------- |
 | `data/units.geojson` | 29 polygons in 15 geological units, tiling the island |
 | `styles/baseline.json` | A MapLibre style colouring those units the way a USGS sheet would |
-| `audit-baseline.json` | The audit of that style, as written by `carto-a11y audit` |
+| `styles/remediated.json` | The same style with an accessible palette |
+| `audit-baseline.json` | The audit of the baseline |
+| `audit-remediated.json` | The audit of the remediated version |
 
 ## The finding
 
@@ -15,12 +17,16 @@ The baseline style is readable to normal colour vision and falls apart for
 everyone else. Of its 153 class pairs, **48 are confusable** under at least one
 vision mode:
 
-| Vision mode | Failing judgements |
-| ----------- | -----------------: |
-| Normal | 9 |
-| Protanopia | 29 |
-| Deuteranopia | 40 |
-| Tritanopia | 21 |
+| Vision mode | Baseline | Remediated |
+| ----------- | -------: | ---------: |
+| Normal | 8 | 1 |
+| Protanopia | 29 | 3 |
+| Deuteranopia | 40 | 3 |
+| Tritanopia | 20 | 2 |
+| **Confusable pairs** | **48** | **4** |
+
+(Both audited over the style's own ocean background, `#a8cbe0`, which is what
+`carto-a11y audit --background '#a8cbe0'` does and what the web app uses.)
 
 The worst offenders are the ones a geologist would care most about: the
 historical flows of Kīlauea (`Qkh`, `#e8232a`) and Mauna Loa (`Qmlh`,
@@ -57,11 +63,36 @@ That is enough to exercise an audit honestly, and the file says so in its own
 serves SIM 3143 as vectors; nothing downstream cares how the polygons were
 made.
 
+## The remediation, and its limit
+
+`styles/remediated.json` is the same style with one thing changed: the
+palette. `generateAccessiblePalette` keeps each unit's hue and moves its
+lightness to an evenly spaced slot between L\* 25 and 85, then nudges hues
+where pairs still clash. Dichromacy takes away hue discrimination but leaves
+lightness nearly intact, so spacing by lightness is the repair that survives
+it. **48 clashes become 4.**
+
+It does not reach zero, and that is the interesting part. Eighteen classes
+spread over 60 L\* sit 3.5 L\* apart, and CIEDE2000 between two colours of
+similar hue is close to their lightness difference — so most of the separation
+has to come from hue, which is exactly what protanopia and deuteranopia
+remove. Measured against this method, a 60 L\* band carries **up to twelve
+classes** with no clashes at all; at fourteen it starts to fail, and at
+eighteen four pairs remain. A geological map with this many units cannot be
+made safe by colour alone. It needs texture, labels or fewer units — which is
+a finding worth having, not a failure of the tool.
+
+The four that remain are `Qkp`/`Qhv` and `Qhm`/`Qhw`, both separated by under
+5 ΔE.
+
 ## Regenerating
 
 ```bash
 pnpm demo:data        # rewrites data/units.geojson
-pnpm build && node packages/cli/bin/carto-a11y.js \
-  audit demos/hawaii/styles/baseline.json --format json \
-  --output demos/hawaii/audit-baseline.json
+pnpm build
+pnpm demo:remediate   # rewrites styles/remediated.json from the baseline
+node packages/cli/bin/carto-a11y.js audit demos/hawaii/styles/baseline.json \
+  --format json --background '#a8cbe0' --output demos/hawaii/audit-baseline.json
+node packages/cli/bin/carto-a11y.js audit demos/hawaii/styles/remediated.json \
+  --format json --background '#a8cbe0' --output demos/hawaii/audit-remediated.json
 ```

@@ -60,8 +60,12 @@ pnpm install && pnpm dev     # http://localhost:5173
 A geological map of Hawaiʻi Island in traditional USGS colours, audited live in
 the browser. Switch the sidebar to Protanopia and the reds, oranges and browns
 that tell a historical lava flow from a 10 ka one collapse into one band of
-olive. 18 classes, 48 confusable pairs. See [demos/hawaii](demos/hawaii) for
-where the data comes from and what the audit found.
+olive. 18 classes, 48 confusable pairs.
+
+Then switch the map to **Accessible Version**: the same layers and the same
+data, repaletted so the classes separate by lightness rather than by hue, and
+the 48 clashes become 4. See [demos/hawaii](demos/hawaii) for where the data
+comes from, what the audit found, and why four remain.
 
 The same style from the command line:
 

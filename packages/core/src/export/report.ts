@@ -193,8 +193,8 @@ function clashSection(data: ReportData, resolved: ResolvedOptions): string {
 
   const items = worst
     .map((pair) => {
-      const nameA = humaniseClassId(pair.classA.id);
-      const nameB = humaniseClassId(pair.classB.id);
+      const nameA = humaniseClassId(pair.classA);
+      const nameB = humaniseClassId(pair.classB);
       const flatA = flatten(pair.classA, resolved.background);
       const flatB = flatten(pair.classB, resolved.background);
       const seenA = asSeen(flatA, pair.mode);
@@ -250,7 +250,7 @@ function colourSection(classes: readonly MapClass[], background: RGB): string {
   const cards = classes
     .map((cls) => {
       const flat = flatten(cls, background);
-      const name = humaniseClassId(cls.id);
+      const name = humaniseClassId(cls);
       const opacity = cls.opacity === 1 ? '' : ` · ${String(Math.round(cls.opacity * 100))}% opacity`;
       return (
         `<li class="class-card">` +
@@ -276,8 +276,8 @@ function technicalRow(pair: AuditPair, background: RGB): string {
   const seenB = asSeen(flatten(pair.classB, background), pair.mode);
   return (
     `<tr>` +
-    `<td>${swatch(flatten(pair.classA, background), humaniseClassId(pair.classA.id))}</td>` +
-    `<td>${swatch(flatten(pair.classB, background), humaniseClassId(pair.classB.id))}</td>` +
+    `<td>${swatch(flatten(pair.classA, background), humaniseClassId(pair.classA))}</td>` +
+    `<td>${swatch(flatten(pair.classB, background), humaniseClassId(pair.classB))}</td>` +
     `<td>${escapeHtml(VISION_MODE_LABELS[pair.mode])}</td>` +
     `<td class="num">${pair.dE.toFixed(2)}</td>` +
     `<td class="num">${pair.contrast.toFixed(2)}:1</td>` +

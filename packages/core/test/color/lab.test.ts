@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
+import { rgbToHex, type RGB } from '../../src/color/parse.js';
 import {
   D65_WHITE,
   ciede2000,
+  labToRgb,
+  labToXyz,
   rgbToLab,
   srgbToXyz,
   xyzToLab,
+  xyzToSrgb,
   type Lab,
 } from '../../src/color/lab.js';
 
@@ -134,6 +138,83 @@ describe('rgbToLab', () => {
       expect(L).toBeGreaterThan(previous);
       previous = L;
     }
+  });
+});
+
+describe('labToXyz and xyzToSrgb', () => {
+  it('inverts xyzToLab', () => {
+    for (const lab of [
+      { L: 0, a: 0, b: 0 },
+      { L: 100, a: 0, b: 0 },
+      { L: 53.2408, a: 80.0925, b: 67.2032 },
+      { L: 32.297, a: 79.1875, b: -107.8602 },
+      { L: 8, a: 0, b: 0 },
+    ]) {
+      const [x, y, z] = labToXyz(lab);
+      const back = xyzToLab(x, y, z);
+      expect(back.L, `L of ${JSON.stringify(lab)}`).toBeCloseTo(lab.L, 9);
+      expect(back.a, `a of ${JSON.stringify(lab)}`).toBeCloseTo(lab.a, 9);
+      expect(back.b, `b of ${JSON.stringify(lab)}`).toBeCloseTo(lab.b, 9);
+    }
+  });
+
+  it('inverts srgbToXyz', () => {
+    for (const rgb of [
+      [0, 0, 0],
+      [1, 1, 1],
+      [1, 0, 0],
+      [0.2, 0.6, 0.9],
+    ] as RGB[]) {
+      const back = xyzToSrgb(...srgbToXyz(rgb[0], rgb[1], rgb[2]));
+      // The two matrices are published to seven decimals and are not exact
+      // inverses of each other. Near zero the sRGB transfer function also
+      // multiplies the residue by 12.92, so a few parts per million is the
+      // honest tolerance here - well under half an 8-bit step of 1/510.
+      expect(back[0]).toBeCloseTo(rgb[0], 5);
+      expect(back[1]).toBeCloseTo(rgb[1], 5);
+      expect(back[2]).toBeCloseTo(rgb[2], 5);
+    }
+  });
+});
+
+describe('labToRgb', () => {
+  it('round-trips every in-gamut 8-bit grey', () => {
+    for (let i = 0; i <= 255; i += 1) {
+      const grey: RGB = [i / 255, i / 255, i / 255];
+      expect(rgbToHex(labToRgb(rgbToLab(grey))), rgbToHex(grey)).toBe(rgbToHex(grey));
+    }
+  });
+
+  it('round-trips a sample of in-gamut colours exactly to 8 bits', () => {
+    for (const hex of ['#ff0000', '#00ff00', '#0000ff', '#aad3df', '#006a00', '#f6edc3']) {
+      const rgb: RGB = [
+        Number.parseInt(hex.slice(1, 3), 16) / 255,
+        Number.parseInt(hex.slice(3, 5), 16) / 255,
+        Number.parseInt(hex.slice(5, 7), 16) / 255,
+      ];
+      expect(rgbToHex(labToRgb(rgbToLab(rgb))), hex).toBe(hex);
+    }
+  });
+
+  it('brings an out-of-gamut colour in by dropping chroma, not lightness', () => {
+    // Far more chroma than sRGB can show at this lightness.
+    const wanted: Lab = { L: 50, a: 120, b: 40 };
+    const rgb = labToRgb(wanted);
+    for (const channel of rgb) {
+      expect(channel).toBeGreaterThanOrEqual(0);
+      expect(channel).toBeLessThanOrEqual(1);
+    }
+    const got = rgbToLab(rgb);
+    expect(got.L).toBeCloseTo(wanted.L, 1);
+    // Hue survives; chroma is what gives way.
+    const hueOf = (lab: Lab): number => Math.atan2(lab.b, lab.a);
+    expect(hueOf(got)).toBeCloseTo(hueOf(wanted), 2);
+    expect(Math.hypot(got.a, got.b)).toBeLessThan(Math.hypot(wanted.a, wanted.b));
+  });
+
+  it('clamps lightness outside 0..100', () => {
+    expect(rgbToHex(labToRgb({ L: -20, a: 0, b: 0 }))).toBe('#000000');
+    expect(rgbToHex(labToRgb({ L: 140, a: 0, b: 0 }))).toBe('#ffffff');
   });
 });
 

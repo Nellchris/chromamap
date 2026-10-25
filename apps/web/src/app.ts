@@ -1,6 +1,7 @@
 /**
  * The Hawaiʻi demo: a geological map, audited live, previewable through each
- * dichromacy.
+ * dichromacy, and switchable between the style as authored and a remediated
+ * one.
  *
  * Everything the panel shows comes from `@carto-a11y/core` running in the
  * browser on the very style MapLibre is drawing, so what the audit says and
@@ -16,6 +17,7 @@ import {
   ScaleControl,
   setWorkerUrl,
   type LngLatBoundsLike,
+  type StyleSpecification,
 } from 'maplibre-gl';
 // MapLibre finds its worker with `new URL('./maplibre-gl-worker.mjs',
 // import.meta.url)`. Once a bundler has moved the module, that URL points at
@@ -31,6 +33,7 @@ import {
   VISION_MODE_LABELS,
   clashSentence,
   compositeOver,
+  extractBackground,
   extractClasses,
   humaniseClassId,
   rgbToHex,
@@ -47,8 +50,15 @@ import {
 setWorkerUrl(maplibreWorkerUrl);
 
 const BASE = import.meta.env.BASE_URL;
-const STYLE_URL = `${BASE}styles/baseline.json`;
 const UNITS_URL = `${BASE}data/units.geojson`;
+
+/** The two styles the demo compares. */
+const VARIANTS = {
+  original: { label: 'Original Map', url: `${BASE}styles/baseline.json` },
+  accessible: { label: 'Accessible Version', url: `${BASE}styles/remediated.json` },
+} as const;
+
+type VariantKey = keyof typeof VARIANTS;
 
 /** The id of the highlight layer this app adds on top of the demo style. */
 const HIGHLIGHT_LAYER = 'carto-a11y-highlight';
@@ -86,6 +96,12 @@ function swatch(color: RGB, title: string, small = false): HTMLSpanElement {
   const node = el('span', small ? 'swatch swatch-sm' : 'swatch');
   node.style.background = rgbToHex(color);
   node.title = title;
+  return node;
+}
+
+function arrow(className: string): HTMLSpanElement {
+  const node = el('span', className, '→');
+  node.setAttribute('aria-hidden', 'true');
   return node;
 }
 
@@ -172,8 +188,9 @@ function unitBounds(geojson: unknown): Map<string, Bbox> {
  * Real names for the geological units, read out of the data.
  *
  * A style only knows a unit as `Qku`; the GeoJSON knows it is the Kaʻū Basalt.
- * Using the better name is the difference between a panel that reads like a
- * sentence and one that reads like a database.
+ * `extractClasses` fills in a `displayName` by itself when a style carries its
+ * GeoJSON inline, but this demo's source is a URL, so the app does the same
+ * job with the data it fetched.
  */
 function unitNames(geojson: unknown): Map<string, string> {
   const names = new Map<string, string>();
@@ -211,20 +228,55 @@ function merge(a: Bbox, b: Bbox): Bbox {
   };
 }
 
+
 /* ------------------------------------------------------------------ *
  * The app
  * ------------------------------------------------------------------ */
 
-/** Everything the panels need, gathered once. */
-interface DemoState {
+/** One version of the map, with its own audit. */
+interface Variant {
+  key: VariantKey;
+  label: string;
+  style: unknown;
   classes: MapClass[];
   audit: AuditResult;
   background: RGB;
+}
+
+interface DemoState {
+  variants: Variant[];
+  active: VariantKey;
   bounds: Map<string, Bbox>;
-  names: Map<string, string>;
   mode: VisionMode;
   activePair: AuditPair | undefined;
   showAllClashes: boolean;
+}
+
+function current(state: DemoState): Variant {
+  const found = state.variants.find((variant) => variant.key === state.active);
+  if (found === undefined) {
+    throw new Error(`no variant called ${state.active}`);
+  }
+  return found;
+}
+
+/** Build a variant from a loaded style, naming its classes from the data. */
+function buildVariant(
+  key: VariantKey,
+  label: string,
+  style: unknown,
+  names: ReadonlyMap<string, string>,
+): Variant {
+  const background = extractBackground(style);
+  const classes = extractClasses(style).map((cls) => {
+    const unit = unitOf(cls.id);
+    const name = unit === undefined ? undefined : names.get(unit);
+    if (name !== undefined) {
+      cls.displayName = name;
+    }
+    return cls;
+  });
+  return { key, label, style, classes, audit: runAudit(classes, { background }), background };
 }
 
 export async function startApp(root: HTMLElement): Promise<void> {
@@ -243,18 +295,18 @@ export async function startApp(root: HTMLElement): Promise<void> {
     toggle.setAttribute('aria-expanded', String(!open));
   });
 
-  let style: unknown;
-  let units: unknown;
-  try {
-    const [styleResponse, unitsResponse] = await Promise.all([
-      fetch(STYLE_URL),
-      fetch(UNITS_URL),
-    ]);
-    if (!styleResponse.ok || !unitsResponse.ok) {
-      throw new Error(`HTTP ${String(styleResponse.status)} / ${String(unitsResponse.status)}`);
+  const loadJson = async (url: string): Promise<unknown> => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`${url} returned HTTP ${String(response.status)}`);
     }
-    style = await styleResponse.json();
-    units = await unitsResponse.json();
+    return response.json();
+  };
+
+  let units: unknown;
+  let baseline: unknown;
+  try {
+    [units, baseline] = await Promise.all([loadJson(UNITS_URL), loadJson(VARIANTS.original.url)]);
   } catch (error) {
     panel.replaceChildren(
       el(
@@ -268,9 +320,23 @@ export async function startApp(root: HTMLElement): Promise<void> {
     return;
   }
 
+  const names = unitNames(units);
+  const variants: Variant[] = [
+    buildVariant('original', VARIANTS.original.label, baseline, names),
+  ];
+
+  // The remediated style is optional: without it the demo simply has nothing
+  // to compare against, rather than failing to start.
+  try {
+    const remediated = await loadJson(VARIANTS.accessible.url);
+    variants.push(buildVariant('accessible', VARIANTS.accessible.label, remediated, names));
+  } catch (error) {
+    console.warn('[demo] no accessible version to compare with:', error);
+  }
+
   const map = new MapLibreMap({
     container: mapEl,
-    style: STYLE_URL,
+    style: VARIANTS.original.url,
     center: [-155.5, 19.6],
     zoom: 8.1,
     attributionControl: { compact: true },
@@ -294,14 +360,10 @@ export async function startApp(root: HTMLElement): Promise<void> {
     console.error('[map]', event.error?.message ?? event);
   });
 
-  const classes = extractClasses(style);
-  const background = backgroundOf(style);
   const state: DemoState = {
-    classes,
-    audit: runAudit(classes, { background }),
-    background,
+    variants,
+    active: 'original',
     bounds: unitBounds(units),
-    names: unitNames(units),
     mode: 'normal',
     activePair: undefined,
     showAllClashes: false,
@@ -309,6 +371,18 @@ export async function startApp(root: HTMLElement): Promise<void> {
 
   const render = (): void => {
     renderPanel(panel, state, {
+      onVariant: (key) => {
+        if (state.active === key) {
+          return;
+        }
+        state.active = key;
+        state.activePair = undefined;
+        state.showAllClashes = false;
+        // Only the paint colours differ between the two, and setStyle keeps
+        // the camera, so the map recolours in place rather than jumping.
+        map.setStyle(current(state).style as StyleSpecification, { diff: true });
+        render();
+      },
       onMode: (mode) => {
         state.mode = mode;
         mapEl.style.filter = mode === 'normal' ? '' : `url(#cvd-${mode})`;
@@ -328,8 +402,12 @@ export async function startApp(root: HTMLElement): Promise<void> {
 
   render();
 
-  map.on('load', () => {
+  // Re-added after every style swap, since setStyle takes the old layers away.
+  map.on('style.load', () => {
     addHighlightLayer(map);
+  });
+
+  map.once('load', () => {
     // The style's own centre and zoom assume a full window; in a narrow one,
     // next to the panel, they leave the reader looking at open ocean. Framing
     // the data itself works at any width.
@@ -348,40 +426,9 @@ export async function startApp(root: HTMLElement): Promise<void> {
   });
 }
 
-/** The style's own background colour, which classes are composited over. */
-function backgroundOf(style: unknown): RGB {
-  const layers = (style as { layers?: unknown }).layers;
-  if (Array.isArray(layers)) {
-    for (const layer of layers) {
-      const paint = (layer as { paint?: Record<string, unknown> }).paint;
-      const colour = paint?.['background-color'];
-      if (typeof colour === 'string') {
-        try {
-          // The ocean behind the island is what a coastal unit sits on.
-          return hexToRgb(colour);
-        } catch {
-          break;
-        }
-      }
-    }
-  }
-  return [1, 1, 1];
-}
-
-function hexToRgb(value: string): RGB {
-  const hex = value.replace('#', '');
-  const full =
-    hex.length === 3 ? [...hex].map((digit) => `${digit}${digit}`).join('') : hex.slice(0, 6);
-  const int = Number.parseInt(full, 16);
-  if (Number.isNaN(int)) {
-    throw new Error(`not a hex colour: ${value}`);
-  }
-  return [((int >> 16) & 0xff) / 255, ((int >> 8) & 0xff) / 255, (int & 0xff) / 255];
-}
-
 /** A thin outline layer used to pick out the two units of a clash. */
 function addHighlightLayer(map: MapLibreMap): void {
-  if (map.getLayer(HIGHLIGHT_LAYER) !== undefined) {
+  if (map.getLayer(HIGHLIGHT_LAYER) !== undefined || map.getSource('units') === undefined) {
     return;
   }
   map.addLayer({
@@ -420,8 +467,8 @@ function focusPair(
     // Nothing on the map to zoom to - a line or label colour. Flash instead.
     for (const node of panel.querySelectorAll('.klass')) {
       if (
-        node.textContent?.includes(nameOf(state, pair.classA)) === true ||
-        node.textContent?.includes(nameOf(state, pair.classB)) === true
+        node.textContent?.includes(humaniseClassId(pair.classA)) === true ||
+        node.textContent?.includes(humaniseClassId(pair.classB)) === true
       ) {
         node.classList.remove('is-flashing');
         void (node as HTMLElement).offsetWidth;
@@ -444,16 +491,10 @@ function focusPair(
  * ------------------------------------------------------------------ */
 
 interface PanelHandlers {
+  onVariant(key: VariantKey): void;
   onMode(mode: VisionMode): void;
   onPair(pair: AuditPair): void;
   onToggleAll(): void;
-}
-
-/** The friendliest name available for a map colour. */
-function nameOf(state: DemoState, cls: MapClass): string {
-  const unit = unitOf(cls.id);
-  const known = unit === undefined ? undefined : state.names.get(unit);
-  return known ?? humaniseClassId(cls.id);
 }
 
 /** A class's colour as a reader in this mode sees it, flattened and simulated. */
@@ -467,8 +508,8 @@ function clashesByPair(audit: AuditResult): AuditPair[] {
   const worstByPair = new Map<string, AuditPair>();
   for (const pair of audit.failing) {
     const key = `${pair.classA.id}\u0000${pair.classB.id}`;
-    const current = worstByPair.get(key);
-    if (current === undefined || pair.dE < current.dE) {
+    const existing = worstByPair.get(key);
+    if (existing === undefined || pair.dE < existing.dE) {
       worstByPair.set(key, pair);
     }
   }
@@ -476,21 +517,54 @@ function clashesByPair(audit: AuditResult): AuditPair[] {
 }
 
 function renderPanel(panel: HTMLElement, state: DemoState, handlers: PanelHandlers): void {
-  panel.replaceChildren(
+  const sections: HTMLElement[] = [
     el('h1', 'title', 'Accessibility Audit'),
     el('p', 'subtitle', 'Check if your map colours work for everyone'),
+  ];
+  if (state.variants.length > 1) {
+    sections.push(variantPanel(state, handlers));
+  }
+  sections.push(
     verdictPanel(state),
     visionPanel(state, handlers),
     clashPanel(state, handlers),
-    colourPanel(state),
-    technicalPanel(state),
-    aboutPanel(),
   );
+  if (state.active === 'accessible') {
+    sections.push(comparePanel(state));
+  }
+  sections.push(colourPanel(state), technicalPanel(state), aboutPanel());
+  panel.replaceChildren(...sections);
 }
 
-/** The verdict: the first thing anyone reads. */
+/** The before/after switch. */
+function variantPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
+  const section = el('section', 'panel panel-first');
+  const group = el('div', 'segmented');
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'Which version of the map to show');
+
+  for (const variant of state.variants) {
+    const button = el(
+      'button',
+      `segment${state.active === variant.key ? ' is-selected' : ''}`,
+      variant.label,
+    );
+    button.type = 'button';
+    button.setAttribute('aria-pressed', String(state.active === variant.key));
+    button.addEventListener('click', () => {
+      handlers.onVariant(variant.key);
+    });
+    group.append(button);
+  }
+
+  section.append(group, el('p', 'note', 'Compare the original and improved versions.'));
+  return section;
+}
+
+/** The verdict: the first thing anyone reads about the active version. */
 function verdictPanel(state: DemoState): HTMLElement {
-  const summary = summariseAudit(state.classes, state.audit);
+  const variant = current(state);
+  const summary = summariseAudit(variant.classes, variant.audit);
   const section = el('section', `verdict verdict-${summary.level}`);
 
   const label = el('p', 'verdict-label');
@@ -507,13 +581,24 @@ function verdictPanel(state: DemoState): HTMLElement {
   if (summary.worstLine !== undefined) {
     section.append(el('p', 'verdict-worst', summary.worstLine));
   }
+
+  // When there is an improvement to report, say what it was.
+  const original = state.variants.find((entry) => entry.key === 'original');
+  if (variant.key === 'accessible' && original !== undefined) {
+    const was = summariseAudit(original.classes, original.audit).clashes;
+    section.append(
+      el('p', 'verdict-change', `Down from ${String(was)} on the original map.`),
+    );
+  }
   return section;
 }
 
 function visionPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
   const section = el('section', 'panel');
   section.append(el('h2', 'panel-title', 'Preview as'));
-  section.append(el('p', 'note', 'Shows the map, and the colours below, the way each reader sees it.'));
+  section.append(
+    el('p', 'note', 'Shows the map, and the colours below, the way each reader sees it.'),
+  );
 
   const group = el('div', 'modes');
   group.setAttribute('role', 'radiogroup');
@@ -539,8 +624,9 @@ function visionPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
 
 /** The clashes, each as a sentence with the colours that cause it. */
 function clashPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
+  const variant = current(state);
   const section = el('section', 'panel');
-  const clashes = clashesByPair(state.audit);
+  const clashes = clashesByPair(variant.audit);
 
   const heading = el('h2', 'panel-title', 'Colour clashes');
   if (clashes.length > 0) {
@@ -562,21 +648,17 @@ function clashPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
     const button = el('button', `clash${state.activePair === pair ? ' is-active' : ''}`);
     button.type = 'button';
 
-    const nameA = nameOf(state, pair.classA);
-    const nameB = nameOf(state, pair.classB);
+    const nameA = humaniseClassId(pair.classA);
+    const nameB = humaniseClassId(pair.classB);
     button.append(el('p', 'clash-text', clashSentence(nameA, nameB, pair.mode)));
 
     const colours = el('div', 'clash-colours');
     colours.append(
-      swatch(seenColor(pair.classA, state.background, 'normal'), `${nameA}, as authored`, true),
-      swatch(seenColor(pair.classB, state.background, 'normal'), `${nameB}, as authored`, true),
-    );
-    const arrow = el('span', 'clash-arrow', '→');
-    arrow.setAttribute('aria-hidden', 'true');
-    colours.append(arrow);
-    colours.append(
-      swatch(seenColor(pair.classA, state.background, pair.mode), `${nameA}, as seen`, true),
-      swatch(seenColor(pair.classB, state.background, pair.mode), `${nameB}, as seen`, true),
+      swatch(seenColor(pair.classA, variant.background, 'normal'), `${nameA}, as authored`, true),
+      swatch(seenColor(pair.classB, variant.background, 'normal'), `${nameB}, as authored`, true),
+      arrow('clash-arrow'),
+      swatch(seenColor(pair.classA, variant.background, pair.mode), `${nameA}, as seen`, true),
+      swatch(seenColor(pair.classB, variant.background, pair.mode), `${nameB}, as seen`, true),
     );
     button.append(colours);
 
@@ -592,9 +674,7 @@ function clashPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
     const more = el(
       'button',
       'link-button',
-      state.showAllClashes
-        ? 'Show fewer'
-        : `Show all ${String(clashes.length)} clashes`,
+      state.showAllClashes ? 'Show fewer' : `Show all ${String(clashes.length)} clashes`,
     );
     more.type = 'button';
     more.setAttribute('aria-expanded', String(state.showAllClashes));
@@ -604,33 +684,67 @@ function clashPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
   return section;
 }
 
+/** What changed: every colour, before beside after. */
+function comparePanel(state: DemoState): HTMLElement {
+  const section = el('section', 'panel');
+  section.append(el('h2', 'panel-title', 'What changed'));
+  section.append(el('p', 'note', 'Every map colour, as authored and as remediated.'));
+
+  const original = state.variants.find((entry) => entry.key === 'original');
+  const accessible = current(state);
+  const before = new Map((original?.classes ?? []).map((cls) => [cls.id, cls]));
+
+  const list = el('ul', 'list');
+  for (const cls of accessible.classes) {
+    const was = before.get(cls.id);
+    if (was === undefined) {
+      continue;
+    }
+    const name = humaniseClassId(cls);
+    const item = el('li', 'klass');
+    const colours = el('div', 'klass-colours');
+    colours.append(
+      swatch(seenColor(was, original?.background ?? accessible.background, state.mode), `${name}, before`),
+      arrow('klass-arrow'),
+      swatch(seenColor(cls, accessible.background, state.mode), `${name}, after`),
+    );
+    item.append(colours, el('span', 'klass-name', name));
+    list.append(item);
+  }
+  section.append(list);
+  return section;
+}
+
 /** Every colour the map paints: swatch and name, nothing else. */
 function colourPanel(state: DemoState): HTMLElement {
+  const variant = current(state);
   const section = el('section', 'panel');
   const heading = el('h2', 'panel-title', 'Map colours');
-  heading.append(el('span', 'panel-count', String(state.classes.length)));
+  heading.append(el('span', 'panel-count', String(variant.classes.length)));
   section.append(heading);
 
   if (state.mode !== 'normal') {
     section.append(
-      el('p', 'note', `Left as authored, right as a ${VISION_MODE_LABELS[state.mode].toLowerCase()} reader sees it.`),
+      el(
+        'p',
+        'note',
+        `Left as authored, right as a ${VISION_MODE_LABELS[state.mode].toLowerCase()} reader sees it.`,
+      ),
     );
   }
 
   const list = el('ul', 'list');
-  for (const cls of state.classes) {
+  for (const cls of variant.classes) {
     const item = el('li', 'klass');
-    const name = nameOf(state, cls);
-    const authored = seenColor(cls, state.background, 'normal');
-
+    const name = humaniseClassId(cls);
     const colours = el('div', 'klass-colours');
-    colours.append(swatch(authored, `${name}, as authored`));
+    colours.append(swatch(seenColor(cls, variant.background, 'normal'), `${name}, as authored`));
     if (state.mode !== 'normal') {
-      const arrow = el('span', 'klass-arrow', '→');
-      arrow.setAttribute('aria-hidden', 'true');
-      colours.append(arrow, swatch(seenColor(cls, state.background, state.mode), `${name}, as seen`));
+      colours.append(
+        arrow('klass-arrow'),
+        swatch(seenColor(cls, variant.background, state.mode), `${name}, as seen`),
+      );
     }
-
     item.append(colours, el('span', 'klass-name', name));
     list.append(item);
   }
@@ -640,12 +754,12 @@ function colourPanel(state: DemoState): HTMLElement {
 
 /** The numbers, for anyone who wants them, folded away by default. */
 function technicalPanel(state: DemoState): HTMLElement {
+  const variant = current(state);
   const section = el('section', 'panel');
   const details = el('details', 'technical');
-  const summary = el('summary', 'technical-summary', 'Technical details');
-  details.append(summary);
+  details.append(el('summary', 'technical-summary', 'Technical details'));
 
-  const { audit } = state;
+  const { audit } = variant;
   details.append(
     el(
       'p',
@@ -672,26 +786,34 @@ function technicalPanel(state: DemoState): HTMLElement {
     const table = el('table', 'mini');
     const head = el('thead');
     const headRow = el('tr');
-    headRow.append(
-      el('th', undefined, 'Pair'),
-      el('th', 'num', 'ΔE00'),
-      el('th', 'num', 'Contrast'),
-    );
+    headRow.append(el('th', undefined, 'Pair'), el('th', 'num', 'ΔE00'), el('th', 'num', 'Contrast'));
     head.append(headRow);
     const body = el('tbody');
     for (const pair of [...audit.failing].sort((a, b) => a.dE - b.dE)) {
       const row = el('tr');
       const cell = el('td');
       cell.append(
-        el('span', 'mini-pair', `${nameOf(state, pair.classA)} ↔ ${nameOf(state, pair.classB)}`),
+        el(
+          'span',
+          'mini-pair',
+          `${humaniseClassId(pair.classA)} ↔ ${humaniseClassId(pair.classB)}`,
+        ),
         el('span', 'mini-mode', VISION_MODE_LABELS[pair.mode]),
       );
-      row.append(cell, el('td', 'num', pair.dE.toFixed(2)), el('td', 'num', `${pair.contrast.toFixed(2)}:1`));
+      row.append(
+        cell,
+        el('td', 'num', pair.dE.toFixed(2)),
+        el('td', 'num', `${pair.contrast.toFixed(2)}:1`),
+      );
       body.append(row);
     }
     table.append(head, body);
     details.append(
-      el('p', 'technical-heading', `Every clash (${String(audit.failing.length)} of ${String(audit.summary.total)} checks)`),
+      el(
+        'p',
+        'technical-heading',
+        `Every clash (${String(audit.failing.length)} of ${String(audit.summary.total)} checks)`,
+      ),
       table,
     );
   }

@@ -11,7 +11,7 @@
  */
 
 import type { RGB } from './parse.js';
-import { srgbToLinear } from './wcag.js';
+import { linearToSrgb, srgbToLinear } from './wcag.js';
 
 /** A colour in CIELAB: lightness plus the two opponent axes. */
 export type Lab = { L: number; a: number; b: number };
@@ -92,6 +92,100 @@ export function xyzToLab(x: number, y: number, z: number): Lab {
 export function rgbToLab(rgb: RGB): Lab {
   const [x, y, z] = srgbToXyz(rgb[0], rgb[1], rgb[2]);
   return xyzToLab(x, y, z);
+}
+
+/**
+ * Convert CIELAB back to CIE XYZ under D65. Inverse of {@link xyzToLab}.
+ *
+ * @param lab - The colour.
+ * @returns `[X, Y, Z]` on the same scale {@link srgbToXyz} produces.
+ */
+export function labToXyz(lab: Lab): [number, number, number] {
+  const fy = (lab.L + 16) / 116;
+  const fx = fy + lab.a / 500;
+  const fz = fy - lab.b / 200;
+
+  const inverse = (f: number): number => {
+    const cubed = f ** 3;
+    return cubed > EPSILON ? cubed : (116 * f - 16) / KAPPA;
+  };
+
+  // Y has its own branch, taken on L* rather than on f(y), because that is
+  // where the CIE definition puts the crossover.
+  const yr = lab.L > KAPPA * EPSILON ? fy ** 3 : lab.L / KAPPA;
+
+  return [inverse(fx) * D65_WHITE.x, yr * D65_WHITE.y, inverse(fz) * D65_WHITE.z];
+}
+
+/**
+ * Convert CIE XYZ to gamma-encoded sRGB under D65. Inverse of
+ * {@link srgbToXyz}.
+ *
+ * Channels are returned as the maths gives them, so a colour outside the sRGB
+ * gamut comes back outside 0..1. {@link labToRgb} is the version that lands in
+ * gamut.
+ *
+ * @param x - X tristimulus value.
+ * @param y - Y tristimulus value.
+ * @param z - Z tristimulus value.
+ * @returns sRGB channels, not necessarily within 0..1.
+ */
+export function xyzToSrgb(x: number, y: number, z: number): RGB {
+  const rl = 3.2404542 * x - 1.5371385 * y - 0.4985314 * z;
+  const gl = -0.969266 * x + 1.8760108 * y + 0.041556 * z;
+  const bl = 0.0556434 * x - 0.2040259 * y + 1.0572252 * z;
+  return [linearToSrgb(rl), linearToSrgb(gl), linearToSrgb(bl)];
+}
+
+/** True when every channel is within the sRGB cube, give or take rounding. */
+function inGamut(rgb: RGB): boolean {
+  return rgb.every((channel) => channel >= -1e-6 && channel <= 1 + 1e-6);
+}
+
+function clampChannels(rgb: RGB): RGB {
+  return [
+    Math.min(1, Math.max(0, rgb[0])),
+    Math.min(1, Math.max(0, rgb[1])),
+    Math.min(1, Math.max(0, rgb[2])),
+  ];
+}
+
+/**
+ * Convert CIELAB to sRGB, bringing the colour into gamut if it is outside.
+ *
+ * Out-of-gamut colours have their chroma reduced towards the neutral axis
+ * until they fit, which keeps lightness and hue - the two things a caller
+ * asking for a specific L* and hue actually cares about. Clipping each channel
+ * instead would hold chroma and throw away the hue, which is the opposite of
+ * what a palette needs.
+ *
+ * @param lab - The colour. L* outside 0..100 is clamped first.
+ * @returns sRGB channels in 0..1.
+ */
+export function labToRgb(lab: Lab): RGB {
+  const target: Lab = { L: Math.min(100, Math.max(0, lab.L)), a: lab.a, b: lab.b };
+  const direct = xyzToSrgb(...labToXyz(target));
+  if (inGamut(direct)) {
+    return clampChannels(direct);
+  }
+
+  // Binary search the largest chroma scale that still fits.
+  let fits = 0;
+  let over = 1;
+  for (let step = 0; step < 24; step += 1) {
+    const mid = (fits + over) / 2;
+    const candidate = xyzToSrgb(
+      ...labToXyz({ L: target.L, a: target.a * mid, b: target.b * mid }),
+    );
+    if (inGamut(candidate)) {
+      fits = mid;
+    } else {
+      over = mid;
+    }
+  }
+  return clampChannels(
+    xyzToSrgb(...labToXyz({ L: target.L, a: target.a * fits, b: target.b * fits })),
+  );
 }
 
 /** atan2 in degrees over 0..360, with the CIE convention of 0 at the origin. */
