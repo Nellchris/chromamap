@@ -1,15 +1,19 @@
-import { contrastRatio, relativeLuminance } from '@carto-a11y/core';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import './style.css';
 
-/** Smoke test that the engine is wired into the UI bundle. */
-function describeEngine(): string {
-  const ratio = contrastRatio(
-    relativeLuminance(0, 0, 0),
-    relativeLuminance(1, 1, 1),
-  );
-  return `engine ready — black on white is ${ratio.toFixed(0)}:1`;
+import { startApp } from './app';
+
+const root = document.querySelector<HTMLDivElement>('#app');
+if (root === null) {
+  throw new Error('#app is missing from the page');
 }
 
-const status = document.querySelector<HTMLParagraphElement>('#status');
-if (status !== null) {
-  status.textContent = describeEngine();
-}
+void startApp(root).catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  const panel = document.querySelector<HTMLElement>('#sidebar-scroll');
+  if (panel !== null) {
+    panel.textContent = `The demo failed to start: ${message}`;
+    panel.className = 'sidebar-scroll error';
+  }
+  console.error(error);
+});

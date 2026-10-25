@@ -10,13 +10,15 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm --filter \"./packages/*\" run build",
+    "build": "pnpm -r run build",
     "test": "pnpm -r run test",
-    "lint": "pnpm -r run lint",
+    "lint": "tsc -p scripts/tsconfig.json && pnpm -r run lint",
     "dev": "pnpm --filter @carto-a11y/web run dev",
+    "demo:data": "node scripts/fetch-hawaii.ts",
     "clean": "pnpm -r exec node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "types": ["node"],
+    "paths": {
+      "@carto-a11y/core": ["../packages/core/src/index.ts"]
+    }
+  },
+  "include": ["**/*.ts"]
+}

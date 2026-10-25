@@ -51,6 +51,24 @@ writes it to a file. `--threshold`, `--background` and `--modes` tune the
 audit. The command exits 0 when nothing is confusable, 1 when something is,
 and 2 when it could not run — so it drops into CI as a check.
 
+## The Hawaiʻi demo
+
+```bash
+pnpm install && pnpm dev     # http://localhost:5173
+```
+
+A geological map of Hawaiʻi Island in traditional USGS colours, audited live in
+the browser. Switch the sidebar to Protanopia and the reds, oranges and browns
+that tell a historical lava flow from a 10 ka one collapse into one band of
+olive. 18 classes, 48 confusable pairs. See [demos/hawaii](demos/hawaii) for
+where the data comes from and what the audit found.
+
+The same style from the command line:
+
+```bash
+pnpm build && node packages/cli/bin/carto-a11y.js audit demos/hawaii/styles/baseline.json
+```
+
 ## State of the scaffold
 
 The colour layer, under `packages/core/src/color/`:
@@ -79,16 +97,14 @@ const { failing, summary } = runAudit(extractClasses(style));
 Reference values are checked against published sources where they exist
 (Sharma et al. for CIEDE2000, the CSS spec for named colours).
 
-`apps/web` is scaffolded (entry HTML, `src/main.ts`, `vite.config.ts`) but
-**vite is not installed yet** — the dependency list is deliberately limited to
-`typescript` and `vitest`. `pnpm dev` and `pnpm build` inside `apps/web` start
-working after:
+`apps/web` is a Vite + TypeScript app with no framework: a MapLibre map, a
+collapsible sidebar, and the engine running in the browser on the very style
+the map is drawing, so the panel and the map cannot disagree. Vision-mode
+preview is an SVG `feColorMatrix` filter over the map container built from the
+same Machado matrices `simulateCVD` uses.
 
-```bash
-corepack pnpm add -D vite --filter @carto-a11y/web
-```
-
-Root `pnpm build` only builds `packages/*`, so it is unaffected.
+`scripts/fetch-hawaii.ts` runs on Node 24 directly — no loader, no build step —
+because Node strips the types itself.
 
 ## Licence
 

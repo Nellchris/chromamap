@@ -23,8 +23,15 @@
   preview built on inline `feColorMatrix` filters.
 - `carto-a11y audit <style.json>` — the whole pipeline from the command line,
   in summary, JSON or HTML, exiting 1 when a pair is confusable.
+- Hawaiʻi demo — `scripts/fetch-hawaii.ts`, 15 geological units, a USGS-style
+  baseline style, and its audit. See [../demos/hawaii](../demos/hawaii).
+- `apps/web` — MapLibre map, live audit panel, CVD preview over the map.
 
 ## Next
+
+0. **Real USGS polygons.** The demo data is synthesised because no USGS
+   service reachable from a plain HTTP client serves SIM 3143 as vectors.
+   Replace it when one does, or by converting the published shapefiles.
 
 1. **More style syntax** — `case`, `step` and `interpolate` expressions, which
    extraction currently skips because they have no single static value;
@@ -43,6 +50,12 @@
    about them; propose a nearby colour that clears the threshold in every mode.
 7. **Adapters** — load styles from a URL as well as a path, so the CLI and web
    share one loader (`packages/adapters` is still interfaces only).
-9. **Web UI** — add vite, render a map alongside live audit findings.
-10. **Hawaii demo** — real data and styles under `demos/hawaii` driving an
-    end-to-end example.
+8. **An accessible counterpart style** — `demos/hawaii/styles/accessible.json`,
+   a repalette of the baseline that clears the threshold in every mode, so the
+   demo shows a before *and* an after. This is the obvious next demo step.
+9. **Slimmer JSON reports** — `audit-baseline.json` is 450 kB because every
+   pair embeds both class objects in full; reference them by id instead.
+10. **Code-split the web bundle** — MapLibre makes it 1 MB; load it lazily so
+    the audit panel paints first.
+11. **Open the style in the app** — the demo hard-codes one style URL; let a
+    reader drop in their own.

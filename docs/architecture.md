@@ -13,9 +13,12 @@
   touches `process` and `node:fs`. Commands that need the filesystem take a
   `CliIo` instead of importing it, which is how `audit` reads a style and
   writes a report while the tests use an in-memory stand-in.
-- **`@carto-a11y/web`** — the browser UI. Imports core directly; during
-  development TypeScript resolves it to core's sources through `paths`, and
-  Vite resolves the workspace link.
+- **`@carto-a11y/web`** — the browser UI. Imports core directly; TypeScript
+  resolves it to core's sources through `paths` and Vite through an alias, so
+  there is no build step between editing the engine and seeing the map change.
+  It serves `demos/hawaii` as its `publicDir`, which means the app, the CLI and
+  the repo all read the same style file, and the style's own relative source
+  URL keeps working.
 
 Dependency direction is one-way: `cli` and `web` depend on `core`; `core`
 depends on nothing.
@@ -38,6 +41,27 @@ So a style audit is a pipeline: `extractClasses` → `compositeOver` →
 `simulateCVD` → `ciede2000` / `contrastRatio`. Each step is exported on its
 own, because the web UI needs the intermediate values (what a swatch looks like
 under deuteranopia) and not just the verdict.
+
+## One source for the simulation
+
+The dichromacy matrices in `color/cvd.ts` are used three times over: by
+`simulateCVD` for the numbers, by `export/report.ts` for the HTML report's
+preview filters, and by `apps/web` for the filter laid over the live map. All
+three build their `feColorMatrix` from `CVD_MATRICES` rather than hard-coding
+the values, and all three set `color-interpolation-filters="linearRGB"` so the
+browser applies the matrix in linear light through the real sRGB transfer
+function — the same curve `srgbToLinear` uses. An explicit `feComponentTransfer`
+gamma of 2.2 would only approximate that curve, and the map would then disagree
+with the swatches beside it.
+
+## MapLibre's worker
+
+MapLibre locates its worker with `new URL('./maplibre-gl-worker.mjs',
+import.meta.url)`. Any bundler that moves the module breaks that URL, and the
+failure is quiet: the map draws its background layer and nothing else. So
+`apps/web/src/app.ts` imports the worker as a Vite asset and names it with
+`setWorkerUrl`. Both the dev server and `vite build` have been checked against
+a rendered map, not just a clean exit code.
 
 ## TypeScript setup
 

@@ -3,13 +3,31 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CartoAccessibility Studio</title>
+    <meta
+      name="description"
+      content="Audit a MapLibre geological map for colour-vision accessibility, and preview it the way a dichromatic reader sees it."
+    />
+    <title>CartoAccessibility Studio — Hawaiʻi</title>
   </head>
   <body>
-    <main id="app">
-      <h1>CartoAccessibility Studio</h1>
-      <p id="status">Loading…</p>
-    </main>
+    <div id="app" class="app" data-sidebar="open">
+      <aside id="sidebar" class="sidebar" aria-label="Audit controls">
+        <div class="sidebar-scroll" id="sidebar-scroll">
+          <p class="loading">Loading the Hawaiʻi demo…</p>
+        </div>
+      </aside>
+      <button
+        id="sidebar-toggle"
+        class="sidebar-toggle"
+        type="button"
+        aria-controls="sidebar"
+        aria-expanded="true"
+      >
+        <span class="sidebar-toggle-glyph" aria-hidden="true">‹</span>
+        <span class="visually-hidden">Toggle the audit panel</span>
+      </button>
+      <div id="map" class="map" role="application" aria-label="Geological map of Hawaiʻi Island"></div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

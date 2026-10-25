@@ -7,17 +7,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@carto-a11y/core": "workspace:*"
+    "@carto-a11y/core": "workspace:*",
+    "maplibre-gl": "catalog:"
   },
   "devDependencies": {
     "typescript": "catalog:",
+    "vite": "catalog:",
     "vitest": "catalog:"
   }
 }

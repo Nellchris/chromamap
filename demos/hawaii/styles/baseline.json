@@ -1,0 +1,98 @@
+{
+  "version": 8,
+  "name": "Hawaiʻi geological map — baseline",
+  "metadata": {
+    "carto-a11y:purpose": "The before picture. Traditional USGS-style geological colours: young flows in reds and oranges, older lavas in browns, olives and purple-greys. Readable to normal colour vision, and the subject of demos/hawaii/audit-baseline.json.",
+    "carto-a11y:palette": "FGDC Digital Cartographic Standard for Geologic Map Symbolization, approximated"
+  },
+  "center": [-155.5, 19.6],
+  "zoom": 8.2,
+  "bearing": 0,
+  "pitch": 0,
+  "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+  "sources": {
+    "units": {
+      "type": "geojson",
+      "data": "../data/units.geojson",
+      "attribution": "Representative geological units after USGS SIM 3143"
+    }
+  },
+  "layers": [
+    {
+      "id": "ocean",
+      "type": "background",
+      "paint": {
+        "background-color": "#a8cbe0"
+      }
+    },
+    {
+      "id": "geologic-units",
+      "type": "fill",
+      "source": "units",
+      "paint": {
+        "fill-color": [
+          "match",
+          ["get", "unit"],
+          "Qa",
+          "#f6edc3",
+          "Qkh",
+          "#e8232a",
+          "Qksw",
+          "#ef5a4b",
+          "Qmlh",
+          "#d62f2a",
+          "Qhu1801",
+          "#e8552e",
+          "Qkp",
+          "#f08a3c",
+          "Qku",
+          "#f2a154",
+          "Qhv",
+          "#e8744a",
+          "Qkhi",
+          "#b06a3b",
+          "Qkk",
+          "#c08a52",
+          "Qlp",
+          "#9c8f5a",
+          "Qhm",
+          "#8a7f4e",
+          "Qni",
+          "#9b8878",
+          "Qhw",
+          "#8f7fa3",
+          "Qpl",
+          "#6e6b86",
+          "#cccccc"
+        ]
+      }
+    },
+    {
+      "id": "unit-contacts",
+      "type": "line",
+      "source": "units",
+      "paint": {
+        "line-color": "#6b6b6b",
+        "line-width": 0.6,
+        "line-opacity": 0.55
+      }
+    },
+    {
+      "id": "unit-labels",
+      "type": "symbol",
+      "source": "units",
+      "minzoom": 8.5,
+      "layout": {
+        "text-field": ["get", "unit"],
+        "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+        "text-size": 11,
+        "symbol-placement": "point"
+      },
+      "paint": {
+        "text-color": "#2b2b2b",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.2
+      }
+    }
+  ]
+}
