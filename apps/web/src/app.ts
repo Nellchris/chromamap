@@ -4,7 +4,8 @@
  *
  * Everything the panel shows comes from `@carto-a11y/core` running in the
  * browser on the very style MapLibre is drawing, so what the audit says and
- * what the map shows cannot drift apart.
+ * what the map shows cannot drift apart. The wording comes from core too, so
+ * the panel and an exported report say the same things in the same words.
  */
 
 // maplibre-gl 6 has no default export, and its `Map` would shadow the built-in
@@ -23,16 +24,19 @@ import {
 // keeps the map working in a build as well as in dev.
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 
-setWorkerUrl(maplibreWorkerUrl);
-
 import {
+  ABOUT_TEXT,
   CVD_MATRICES,
   VISION_MODES,
+  VISION_MODE_LABELS,
+  clashSentence,
   compositeOver,
   extractClasses,
+  humaniseClassId,
   rgbToHex,
   runAudit,
   simulateCVD,
+  summariseAudit,
   type AuditPair,
   type AuditResult,
   type MapClass,
@@ -40,20 +44,17 @@ import {
   type VisionMode,
 } from '@carto-a11y/core';
 
+setWorkerUrl(maplibreWorkerUrl);
+
 const BASE = import.meta.env.BASE_URL;
 const STYLE_URL = `${BASE}styles/baseline.json`;
 const UNITS_URL = `${BASE}data/units.geojson`;
 
-/** What a reader is told each mode is called. */
-const MODE_LABELS: Record<VisionMode, string> = {
-  normal: 'Normal',
-  protan: 'Protanopia',
-  deutan: 'Deuteranopia',
-  tritan: 'Tritanopia',
-};
-
 /** The id of the highlight layer this app adds on top of the demo style. */
 const HIGHLIGHT_LAYER = 'carto-a11y-highlight';
+
+/** How many clashes the panel shows before asking to be expanded. */
+const CLASHES_SHOWN = 5;
 
 interface Bbox {
   west: number;
@@ -131,7 +132,7 @@ function installFilters(): void {
  * Demo data
  * ------------------------------------------------------------------ */
 
-/** Bounding box per geological unit, so a failing pair can be zoomed to. */
+/** Bounding box per geological unit, so a clash can be zoomed to. */
 function unitBounds(geojson: unknown): Map<string, Bbox> {
   const bounds = new Map<string, Bbox>();
   const features = (geojson as { features?: unknown }).features;
@@ -146,12 +147,7 @@ function unitBounds(geojson: unknown): Map<string, Bbox> {
     if (typeof unit !== 'string' || !Array.isArray(coordinates)) {
       continue;
     }
-    const box = bounds.get(unit) ?? {
-      west: 180,
-      south: 90,
-      east: -180,
-      north: -90,
-    };
+    const box = bounds.get(unit) ?? { west: 180, south: 90, east: -180, north: -90 };
     for (const ring of coordinates as unknown[]) {
       if (!Array.isArray(ring)) {
         continue;
@@ -170,6 +166,30 @@ function unitBounds(geojson: unknown): Map<string, Bbox> {
     bounds.set(unit, box);
   }
   return bounds;
+}
+
+/**
+ * Real names for the geological units, read out of the data.
+ *
+ * A style only knows a unit as `Qku`; the GeoJSON knows it is the Kaʻū Basalt.
+ * Using the better name is the difference between a panel that reads like a
+ * sentence and one that reads like a database.
+ */
+function unitNames(geojson: unknown): Map<string, string> {
+  const names = new Map<string, string>();
+  const features = (geojson as { features?: unknown }).features;
+  if (!Array.isArray(features)) {
+    return names;
+  }
+  for (const feature of features) {
+    const properties = (feature as { properties?: Record<string, unknown> }).properties;
+    const unit = properties?.['unit'];
+    const name = properties?.['name'];
+    if (typeof unit === 'string' && typeof name === 'string' && name !== '') {
+      names.set(unit, name);
+    }
+  }
+  return names;
 }
 
 /** `geologic-units/Qkh` names unit `Qkh`; a plain layer id names nothing. */
@@ -201,8 +221,10 @@ interface DemoState {
   audit: AuditResult;
   background: RGB;
   bounds: Map<string, Bbox>;
+  names: Map<string, string>;
   mode: VisionMode;
   activePair: AuditPair | undefined;
+  showAllClashes: boolean;
 }
 
 export async function startApp(root: HTMLElement): Promise<void> {
@@ -255,6 +277,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
   });
   map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
   map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-right');
+
   // Collapsing the sidebar changes the map's box without changing the window,
   // so MapLibre has to be told; this covers window resizes too.
   new ResizeObserver(() => {
@@ -278,8 +301,10 @@ export async function startApp(root: HTMLElement): Promise<void> {
     audit: runAudit(classes, { background }),
     background,
     bounds: unitBounds(units),
+    names: unitNames(units),
     mode: 'normal',
     activePair: undefined,
+    showAllClashes: false,
   };
 
   const render = (): void => {
@@ -294,6 +319,10 @@ export async function startApp(root: HTMLElement): Promise<void> {
         focusPair(map, state, pair, panel);
         render();
       },
+      onToggleAll: () => {
+        state.showAllClashes = !state.showAllClashes;
+        render();
+      },
     });
   };
 
@@ -301,6 +330,21 @@ export async function startApp(root: HTMLElement): Promise<void> {
 
   map.on('load', () => {
     addHighlightLayer(map);
+    // The style's own centre and zoom assume a full window; in a narrow one,
+    // next to the panel, they leave the reader looking at open ocean. Framing
+    // the data itself works at any width.
+    const boxes = [...state.bounds.values()];
+    const first = boxes[0];
+    if (first !== undefined) {
+      const box = boxes.reduce(merge, first);
+      map.fitBounds(
+        [
+          [box.west, box.south],
+          [box.east, box.north],
+        ],
+        { padding: 24, duration: 0 },
+      );
+    }
   });
 }
 
@@ -327,9 +371,7 @@ function backgroundOf(style: unknown): RGB {
 function hexToRgb(value: string): RGB {
   const hex = value.replace('#', '');
   const full =
-    hex.length === 3
-      ? [...hex].map((digit) => `${digit}${digit}`).join('')
-      : hex.slice(0, 6);
+    hex.length === 3 ? [...hex].map((digit) => `${digit}${digit}`).join('') : hex.slice(0, 6);
   const int = Number.parseInt(full, 16);
   if (Number.isNaN(int)) {
     throw new Error(`not a hex colour: ${value}`);
@@ -337,7 +379,7 @@ function hexToRgb(value: string): RGB {
   return [((int >> 16) & 0xff) / 255, ((int >> 8) & 0xff) / 255, (int & 0xff) / 255];
 }
 
-/** A thin outline layer used to pick out the two units of a failing pair. */
+/** A thin outline layer used to pick out the two units of a clash. */
 function addHighlightLayer(map: MapLibreMap): void {
   if (map.getLayer(HIGHLIGHT_LAYER) !== undefined) {
     return;
@@ -355,7 +397,7 @@ function addHighlightLayer(map: MapLibreMap): void {
   });
 }
 
-/** Zoom to the two units of a failing pair and outline them. */
+/** Zoom to the two colours of a clash and outline them. */
 function focusPair(
   map: MapLibreMap,
   state: DemoState,
@@ -375,11 +417,11 @@ function focusPair(
   }
 
   if (boxes.length === 0) {
-    // Nothing on the map to zoom to - a line or label class. Flash instead.
+    // Nothing on the map to zoom to - a line or label colour. Flash instead.
     for (const node of panel.querySelectorAll('.klass')) {
       if (
-        node.textContent?.includes(pair.classA.id) === true ||
-        node.textContent?.includes(pair.classB.id) === true
+        node.textContent?.includes(nameOf(state, pair.classA)) === true ||
+        node.textContent?.includes(nameOf(state, pair.classB)) === true
       ) {
         node.classList.remove('is-flashing');
         void (node as HTMLElement).offsetWidth;
@@ -404,24 +446,74 @@ function focusPair(
 interface PanelHandlers {
   onMode(mode: VisionMode): void;
   onPair(pair: AuditPair): void;
+  onToggleAll(): void;
+}
+
+/** The friendliest name available for a map colour. */
+function nameOf(state: DemoState, cls: MapClass): string {
+  const unit = unitOf(cls.id);
+  const known = unit === undefined ? undefined : state.names.get(unit);
+  return known ?? humaniseClassId(cls.id);
+}
+
+/** A class's colour as a reader in this mode sees it, flattened and simulated. */
+function seenColor(cls: MapClass, background: RGB, mode: VisionMode): RGB {
+  const flat = compositeOver(cls.color, cls.opacity, background);
+  return mode === 'normal' ? flat : simulateCVD(flat, mode);
+}
+
+/** One clash per pair of colours, worst mode first. */
+function clashesByPair(audit: AuditResult): AuditPair[] {
+  const worstByPair = new Map<string, AuditPair>();
+  for (const pair of audit.failing) {
+    const key = `${pair.classA.id}\u0000${pair.classB.id}`;
+    const current = worstByPair.get(key);
+    if (current === undefined || pair.dE < current.dE) {
+      worstByPair.set(key, pair);
+    }
+  }
+  return [...worstByPair.values()].sort((a, b) => a.dE - b.dE);
 }
 
 function renderPanel(panel: HTMLElement, state: DemoState, handlers: PanelHandlers): void {
   panel.replaceChildren(
-    el('h1', 'title', 'CartoAccessibility Studio'),
-    el('p', 'subtitle', 'Hawaiʻi Island geological map · baseline style'),
+    el('h1', 'title', 'Accessibility Audit'),
+    el('p', 'subtitle', 'Check if your map colours work for everyone'),
+    verdictPanel(state),
     visionPanel(state, handlers),
-    auditPanel(state, handlers),
-    classPanel(state),
+    clashPanel(state, handlers),
+    colourPanel(state),
+    technicalPanel(state),
+    aboutPanel(),
   );
+}
+
+/** The verdict: the first thing anyone reads. */
+function verdictPanel(state: DemoState): HTMLElement {
+  const summary = summariseAudit(state.classes, state.audit);
+  const section = el('section', `verdict verdict-${summary.level}`);
+
+  const label = el('p', 'verdict-label');
+  const dot = el('span', 'verdict-dot', summary.indicator);
+  dot.setAttribute('aria-hidden', 'true');
+  label.append(dot, el('span', undefined, summary.label));
+
+  section.append(
+    el('p', 'verdict-title', 'Map Accessibility Score'),
+    label,
+    el('p', 'verdict-headline', summary.headline),
+    el('p', 'verdict-detail', summary.detail),
+  );
+  if (summary.worstLine !== undefined) {
+    section.append(el('p', 'verdict-worst', summary.worstLine));
+  }
+  return section;
 }
 
 function visionPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
   const section = el('section', 'panel');
-  section.append(el('h2', 'panel-title', 'Vision mode'));
-  section.append(
-    el('p', 'note', 'Simulates the map, and the swatches below, for a dichromatic reader.'),
-  );
+  section.append(el('h2', 'panel-title', 'Preview as'));
+  section.append(el('p', 'note', 'Shows the map, and the colours below, the way each reader sees it.'));
 
   const group = el('div', 'modes');
   group.setAttribute('role', 'radiogroup');
@@ -437,7 +529,7 @@ function visionPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
     input.addEventListener('change', () => {
       handlers.onMode(mode);
     });
-    label.append(input, el('span', undefined, MODE_LABELS[mode]));
+    label.append(input, el('span', undefined, VISION_MODE_LABELS[mode]));
     group.append(label);
   }
 
@@ -445,71 +537,49 @@ function visionPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
   return section;
 }
 
-function stat(value: string, label: string, tone: 'neutral' | 'good' | 'bad'): HTMLElement {
-  const item = el('li', `stat${tone === 'neutral' ? '' : ` is-${tone}`}`);
-  item.append(el('div', 'stat-value', value), el('div', 'stat-label', label));
-  return item;
-}
-
-function auditPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
-  const { audit, classes } = state;
-  const classPairs = (classes.length * (classes.length - 1)) / 2;
-  const failingPairs = new Set(
-    audit.failing.map((pair) => `${pair.classA.id}\u0000${pair.classB.id}`),
-  ).size;
-
+/** The clashes, each as a sentence with the colours that cause it. */
+function clashPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
   const section = el('section', 'panel');
-  const heading = el('h2', 'panel-title', 'Audit');
-  const count = el(
-    'span',
-    `panel-count${failingPairs > 0 ? ' is-bad' : ''}`,
-    `${String(failingPairs)} failing`,
-  );
-  heading.append(count);
+  const clashes = clashesByPair(state.audit);
+
+  const heading = el('h2', 'panel-title', 'Colour clashes');
+  if (clashes.length > 0) {
+    heading.append(el('span', 'panel-count is-bad', String(clashes.length)));
+  }
   section.append(heading);
 
-  const stats = el('ul', 'stats');
-  stats.append(
-    stat(String(classes.length), 'classes', 'neutral'),
-    stat(String(audit.summary.total), 'judgements', 'neutral'),
-    stat(String(classPairs - failingPairs), 'pairs clear', 'good'),
-    stat(String(failingPairs), 'pairs confusable', failingPairs > 0 ? 'bad' : 'good'),
-  );
-  section.append(stats);
-
-  if (audit.failing.length === 0) {
-    section.append(el('p', 'empty', 'Nothing in this style is confusable. '));
+  if (clashes.length === 0) {
+    section.append(el('p', 'empty', 'Every colour on this map stays distinguishable. ✓'));
     return section;
   }
 
-  section.append(
-    el('p', 'note', 'Worst first. Pick one to outline both units and zoom the map to them.'),
-  );
+  section.append(el('p', 'note', 'Pick one to outline both colours and zoom the map to them.'));
 
+  const shown = state.showAllClashes ? clashes : clashes.slice(0, CLASHES_SHOWN);
   const list = el('ul', 'list');
-  const worst = [...audit.failing].sort((a, b) => a.dE - b.dE).slice(0, 25);
-  for (const pair of worst) {
+  for (const pair of shown) {
     const item = el('li');
-    const button = el('button', `pair${state.activePair === pair ? ' is-active' : ''}`);
+    const button = el('button', `clash${state.activePair === pair ? ' is-active' : ''}`);
     button.type = 'button';
 
-    const ids = el('div', 'pair-ids');
-    ids.append(
-      swatch(seenColor(pair.classA, state.background, pair.mode), pair.classA.id, true),
-      el('span', 'pair-id', short(pair.classA.id)),
-      el('span', 'pair-arrow', '↔'),
-      swatch(seenColor(pair.classB, state.background, pair.mode), pair.classB.id, true),
-      el('span', 'pair-id', short(pair.classB.id)),
-    );
+    const nameA = nameOf(state, pair.classA);
+    const nameB = nameOf(state, pair.classB);
+    button.append(el('p', 'clash-text', clashSentence(nameA, nameB, pair.mode)));
 
-    const meta = el('div', 'pair-meta');
-    meta.append(
-      el('span', 'pair-mode', MODE_LABELS[pair.mode]),
-      el('span', undefined, `ΔE ${pair.dE.toFixed(1)}`),
-      el('span', undefined, `${pair.contrast.toFixed(2)}:1`),
+    const colours = el('div', 'clash-colours');
+    colours.append(
+      swatch(seenColor(pair.classA, state.background, 'normal'), `${nameA}, as authored`, true),
+      swatch(seenColor(pair.classB, state.background, 'normal'), `${nameB}, as authored`, true),
     );
+    const arrow = el('span', 'clash-arrow', '→');
+    arrow.setAttribute('aria-hidden', 'true');
+    colours.append(arrow);
+    colours.append(
+      swatch(seenColor(pair.classA, state.background, pair.mode), `${nameA}, as seen`, true),
+      swatch(seenColor(pair.classB, state.background, pair.mode), `${nameB}, as seen`, true),
+    );
+    button.append(colours);
 
-    button.append(ids, meta);
     button.addEventListener('click', () => {
       handlers.onPair(pair);
     });
@@ -518,70 +588,120 @@ function auditPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
   }
   section.append(list);
 
-  if (audit.failing.length > worst.length) {
-    section.append(
-      el(
-        'p',
-        'note',
-        `Showing the 25 closest of ${String(audit.failing.length)} failing judgements.`,
-      ),
+  if (clashes.length > CLASHES_SHOWN) {
+    const more = el(
+      'button',
+      'link-button',
+      state.showAllClashes
+        ? 'Show fewer'
+        : `Show all ${String(clashes.length)} clashes`,
     );
+    more.type = 'button';
+    more.setAttribute('aria-expanded', String(state.showAllClashes));
+    more.addEventListener('click', handlers.onToggleAll);
+    section.append(more);
   }
   return section;
 }
 
-/** A class's colour as a reader in this mode sees it, flattened and simulated. */
-function seenColor(cls: MapClass, background: RGB, mode: VisionMode): RGB {
-  const flat = compositeOver(cls.color, cls.opacity, background);
-  return mode === 'normal' ? flat : simulateCVD(flat, mode);
-}
-
-/** Layer ids get long; the unit label is the part that identifies a class. */
-function short(classId: string): string {
-  const slash = classId.lastIndexOf('/');
-  return slash === -1 ? classId : classId.slice(slash + 1);
-}
-
-function classPanel(state: DemoState): HTMLElement {
+/** Every colour the map paints: swatch and name, nothing else. */
+function colourPanel(state: DemoState): HTMLElement {
   const section = el('section', 'panel');
-  const heading = el('h2', 'panel-title', 'Classes');
+  const heading = el('h2', 'panel-title', 'Map colours');
   heading.append(el('span', 'panel-count', String(state.classes.length)));
   section.append(heading);
-  section.append(
-    el(
-      'p',
-      'note',
-      state.mode === 'normal'
-        ? 'As authored, composited over the map background.'
-        : `Left: normal vision. Right: ${MODE_LABELS[state.mode].toLowerCase()}.`,
-    ),
-  );
+
+  if (state.mode !== 'normal') {
+    section.append(
+      el('p', 'note', `Left as authored, right as a ${VISION_MODE_LABELS[state.mode].toLowerCase()} reader sees it.`),
+    );
+  }
 
   const list = el('ul', 'list');
   for (const cls of state.classes) {
     const item = el('li', 'klass');
-    const flat = compositeOver(cls.color, cls.opacity, state.background);
-    const seen = seenColor(cls, state.background, state.mode);
+    const name = nameOf(state, cls);
+    const authored = seenColor(cls, state.background, 'normal');
 
-    const pair = el('div', 'klass-pair');
-    pair.append(swatch(flat, `${cls.id} — as authored ${rgbToHex(flat)}`));
+    const colours = el('div', 'klass-colours');
+    colours.append(swatch(authored, `${name}, as authored`));
     if (state.mode !== 'normal') {
-      pair.append(swatch(seen, `${cls.id} — ${MODE_LABELS[state.mode]} ${rgbToHex(seen)}`));
+      const arrow = el('span', 'klass-arrow', '→');
+      arrow.setAttribute('aria-hidden', 'true');
+      colours.append(arrow, swatch(seenColor(cls, state.background, state.mode), `${name}, as seen`));
     }
 
-    const text = el('div', 'klass-text');
-    text.append(
-      el('span', 'klass-id', cls.id),
-      el(
-        'span',
-        'klass-meta',
-        `${cls.type} · ${rgbToHex(cls.color)}${cls.opacity === 1 ? '' : ` · ${String(Math.round(cls.opacity * 100))}%`}`,
-      ),
-    );
-
-    item.append(pair, text);
+    item.append(colours, el('span', 'klass-name', name));
     list.append(item);
   }
   section.append(list);
+  return section;
+}
+
+/** The numbers, for anyone who wants them, folded away by default. */
+function technicalPanel(state: DemoState): HTMLElement {
+  const section = el('section', 'panel');
+  const details = el('details', 'technical');
+  const summary = el('summary', 'technical-summary', 'Technical details');
+  details.append(summary);
+
+  const { audit } = state;
+  details.append(
+    el(
+      'p',
+      'note',
+      `${String(audit.summary.total)} checks in all: every pair of map colours under every ` +
+        `vision mode. A pair is reported when its CIEDE2000 distance (ΔE00) falls below 10.`,
+    ),
+  );
+
+  const modes = el('table', 'mini');
+  const modeBody = el('tbody');
+  for (const mode of VISION_MODES) {
+    const row = el('tr');
+    row.append(
+      el('td', undefined, VISION_MODE_LABELS[mode]),
+      el('td', 'num', String(audit.summary.byMode[mode])),
+    );
+    modeBody.append(row);
+  }
+  modes.append(modeBody);
+  details.append(el('p', 'technical-heading', 'Clashes by vision mode'), modes);
+
+  if (audit.failing.length > 0) {
+    const table = el('table', 'mini');
+    const head = el('thead');
+    const headRow = el('tr');
+    headRow.append(
+      el('th', undefined, 'Pair'),
+      el('th', 'num', 'ΔE00'),
+      el('th', 'num', 'Contrast'),
+    );
+    head.append(headRow);
+    const body = el('tbody');
+    for (const pair of [...audit.failing].sort((a, b) => a.dE - b.dE)) {
+      const row = el('tr');
+      const cell = el('td');
+      cell.append(
+        el('span', 'mini-pair', `${nameOf(state, pair.classA)} ↔ ${nameOf(state, pair.classB)}`),
+        el('span', 'mini-mode', VISION_MODE_LABELS[pair.mode]),
+      );
+      row.append(cell, el('td', 'num', pair.dE.toFixed(2)), el('td', 'num', `${pair.contrast.toFixed(2)}:1`));
+      body.append(row);
+    }
+    table.append(head, body);
+    details.append(
+      el('p', 'technical-heading', `Every clash (${String(audit.failing.length)} of ${String(audit.summary.total)} checks)`),
+      table,
+    );
+  }
+
+  section.append(details);
+  return section;
+}
+
+function aboutPanel(): HTMLElement {
+  const section = el('section', 'panel about');
+  section.append(el('h2', 'panel-title', 'About'), el('p', 'about-text', ABOUT_TEXT));
   return section;
 }

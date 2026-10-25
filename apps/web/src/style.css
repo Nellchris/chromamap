@@ -7,6 +7,7 @@
   --ink-3: #74749a;
   --accent: #7aa2f7;
   --bad: #ff7a85;
+  --warn: #f0b166;
   --good: #68d391;
   --sidebar-width: 320px;
   --radius: 7px;
@@ -209,47 +210,77 @@ body {
   outline-offset: 2px;
 }
 
-/* ---- stats ---- */
+/* ---- the verdict, which leads the panel ---- */
 
-.stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  margin: 0 0 12px;
-  padding: 0;
-  list-style: none;
-}
-
-.stat {
-  background: var(--sidebar-bg-2);
+.verdict {
   border: 1px solid var(--sidebar-line);
+  border-left: 3px solid var(--ink-3);
   border-radius: var(--radius);
-  padding: 8px 10px;
+  background: var(--sidebar-bg-2);
+  padding: 12px 13px;
+  margin-bottom: 4px;
 }
 
-.stat-value {
-  font-size: 19px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.15;
+.verdict-accessible {
+  border-left-color: var(--good);
 }
 
-.stat-label {
+.verdict-some-issues {
+  border-left-color: var(--warn);
+}
+
+.verdict-needs-attention {
+  border-left-color: var(--bad);
+}
+
+.verdict-title {
+  margin: 0 0 8px;
   font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
   color: var(--ink-3);
-  margin-top: 2px;
 }
 
-.stat.is-bad {
-  border-color: var(--bad);
+.verdict-label {
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
-.stat.is-bad .stat-value {
+.verdict-accessible .verdict-label {
+  color: var(--good);
+}
+
+.verdict-some-issues .verdict-label {
+  color: var(--warn);
+}
+
+.verdict-needs-attention .verdict-label {
   color: var(--bad);
 }
 
-.stat.is-good .stat-value {
-  color: var(--good);
+.verdict-headline {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.verdict-detail {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.verdict-worst {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--ink-3);
 }
 
 /* ---- lists ---- */
@@ -263,58 +294,63 @@ body {
   gap: 4px;
 }
 
-.pair {
+.clash {
   width: 100%;
   text-align: left;
   background: var(--sidebar-bg-2);
   border: 1px solid transparent;
   border-radius: var(--radius);
-  padding: 7px 9px;
+  padding: 8px 10px;
   color: var(--ink);
   cursor: pointer;
   font: inherit;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 7px;
 }
 
-.pair:hover {
+.clash:hover {
   border-color: var(--ink-3);
 }
 
-.pair.is-active {
+.clash.is-active {
   border-color: var(--accent);
 }
 
-.pair-ids {
+.clash-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.clash-colours {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  min-width: 0;
+  /* A 2px gap of background: two colours that have collapsed must still read
+     as two swatches, or the panel hides the very thing it is reporting. */
+  gap: 2px;
 }
 
-.pair-id {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pair-arrow {
+.clash-arrow {
   color: var(--ink-3);
+  margin: 0 7px;
   flex: none;
 }
 
-.pair-meta {
-  font-size: 11px;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-  display: flex;
-  gap: 8px;
+.link-button {
+  margin-top: 8px;
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
 }
 
-.pair-mode {
-  color: var(--bad);
+.link-button:hover {
+  text-decoration: underline;
 }
 
 .swatch {
@@ -331,41 +367,31 @@ body {
   border-radius: 3px;
 }
 
-/* ---- class list ---- */
+/* ---- map colours ---- */
 
 .klass {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   padding: 5px 2px;
   min-width: 0;
 }
 
-.klass-pair {
+.klass-colours {
   display: flex;
-  /* A 2px gap of background, so two colours that collapse under a simulation
-     still read as two swatches rather than one block. */
-  gap: 2px;
+  align-items: center;
   flex: none;
 }
 
-.klass-text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.klass-id {
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.klass-meta {
-  font-size: 11px;
+.klass-arrow {
   color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
+  margin: 0 6px;
+}
+
+.klass-name {
+  font-size: 12.5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .klass.is-flashing {
@@ -387,6 +413,92 @@ body {
   color: var(--good);
   font-size: 12px;
   margin: 0;
+}
+
+/* ---- technical details, folded away ---- */
+
+.technical-summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ink-2);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.technical-summary::-webkit-details-marker {
+  display: none;
+}
+
+.technical-summary::before {
+  content: '▸';
+  color: var(--ink-3);
+  font-size: 10px;
+}
+
+.technical[open] .technical-summary::before {
+  content: '▾';
+}
+
+.technical[open] .technical-summary {
+  margin-bottom: 10px;
+  color: var(--ink);
+}
+
+.technical-heading {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  margin: 14px 0 6px;
+}
+
+.mini {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+.mini th,
+.mini td {
+  text-align: left;
+  padding: 4px 6px 4px 0;
+  border-bottom: 1px solid var(--sidebar-line);
+  vertical-align: top;
+}
+
+.mini th {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.mini tr:last-child td {
+  border-bottom: 0;
+}
+
+.mini .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mini-pair {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.mini-mode {
+  display: block;
+  color: var(--ink-3);
+  font-size: 10.5px;
+}
+
+.about-text {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
 }
 
 .error {

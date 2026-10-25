@@ -144,12 +144,20 @@ describe('audit: html format', () => {
   });
 
   it('contains the audit findings', () => {
-    expect(html).toContain('CartoAccessibility audit');
-    expect(html).toContain('Confusable pairs');
-    expect(html).toContain('parks');
-    expect(html).toContain('industrial');
-    expect(html).toContain('Protanopia');
+    expect(html).toContain('Map accessibility audit');
+    expect(html).toContain('Colour clashes');
+    // Layer ids are tidied for display: `parks` reads as "Parks".
+    expect(html).toContain('“Parks” and “Industrial” look the same to red-blind viewers');
+    expect(html).toContain('Red-Blind (Protanopia)');
     expect(html).toContain('#6d5f00');
+  });
+
+  it('leads with a plain-language verdict', () => {
+    // The fixture has exactly one clash, so the headline is singular.
+    expect(html).toContain('1 colour clash found');
+    expect(html).toMatch(/\d+ of \d+ map colours become confusable/);
+    expect(html).toContain('Worst problems:');
+    expect(html.indexOf('class="verdict')).toBeLessThan(html.indexOf('Technical details'));
   });
 
   it('contains a swatch for every class', () => {
@@ -271,7 +279,9 @@ describe('audit: a style with nothing wrong', () => {
   it('says so in the HTML report too', () => {
     const { io } = memoryIo(files);
     const html = run(['audit', 'clean.json', '--format', 'html'], io).output;
-    expect(html).toContain('Every pair stays at least 10 ΔE apart');
+    expect(html).toContain('No colour clashes found');
+    expect(html).toContain('verdict verdict-accessible');
+    expect(html).toContain('Every pair of map colours stays apart');
   });
 });
 

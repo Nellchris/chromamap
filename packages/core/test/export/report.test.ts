@@ -30,6 +30,9 @@ const CONFUSABLE = [fill('roads', '#ff0000'), fill('parks', '#006a00')];
 /** Nothing here is confusable in any mode. */
 const CLEAN = [fill('ink', 'black'), fill('paper', 'white')];
 
+/** Enough identical fills to land in the red band. */
+const TROUBLE = Array.from({ length: 6 }, (_, index) => fill(`c${String(index)}`, '#336699'));
+
 describe('generateJsonReport', () => {
   it('parses back into the same structure', () => {
     const data = report(CONFUSABLE);
@@ -98,54 +101,122 @@ describe('generateHtmlReport: document', () => {
     expect(html).toContain('<style>');
   });
 
+  it('is titled in plain language', () => {
+    expect(html).toContain('<h1>Map accessibility audit</h1>');
+    expect(html).toContain('Check if your map colours work for everyone');
+  });
+
   it('names the source and the timestamp', () => {
     expect(html).toContain('demo/style.json');
     expect(html).toContain('2026-10-24T12:00:00.000Z');
   });
 
-  it('states the options it ran under', () => {
-    const custom = generateHtmlReport(report(CONFUSABLE, { threshold: 25 }));
-    expect(custom).toContain('Threshold 25');
-    expect(custom).toContain('#ffffff');
+  it('says who the tool is for', () => {
+    expect(html).toContain('About 8% of men and 0.5% of women are affected.');
   });
 });
 
-describe('generateHtmlReport: summary', () => {
-  const html = generateHtmlReport(report(CONFUSABLE));
-
-  it('shows the headline counts', () => {
-    expect(html).toContain('classes extracted');
-    expect(html).toContain('pairs confusable');
-    expect(html).toMatch(/<div class="tile-value">2<\/div>/);
+describe('generateHtmlReport: the verdict', () => {
+  it('leads with the verdict, before anything technical', () => {
+    const html = generateHtmlReport(report(CONFUSABLE));
+    const verdict = html.indexOf('class="verdict');
+    const technical = html.indexOf('Technical details');
+    const clashes = html.indexOf('Colour clashes');
+    expect(verdict).toBeGreaterThan(-1);
+    expect(verdict).toBeLessThan(clashes);
+    expect(clashes).toBeLessThan(technical);
   });
 
-  it('breaks failures down by vision mode', () => {
-    expect(html).toContain('Protanopia');
-    expect(html).toContain('Deuteranopia');
-    expect(html).toContain('Tritanopia');
-    expect(html).toContain('1 failing');
+  it('is amber with a handful of clashes', () => {
+    const html = generateHtmlReport(report(CONFUSABLE));
+    expect(html).toContain('verdict verdict-some-issues');
+    expect(html).toContain('Some issues');
+    expect(html).toContain('1 colour clash found');
+    expect(html).toContain('2 of 2 map colours become confusable');
+    expect(html).toContain('Worst problems: Red-blind viewers (1 clash)');
+  });
+
+  it('is green when nothing clashes', () => {
+    const html = generateHtmlReport(report(CLEAN));
+    expect(html).toContain('verdict verdict-accessible');
+    expect(html).toContain('Accessible');
+    expect(html).toContain('No colour clashes found');
+    expect(html).toContain('🟢');
+  });
+
+  it('is red once there are eleven clashes or more', () => {
+    const html = generateHtmlReport(report(TROUBLE));
+    expect(html).toContain('verdict verdict-needs-attention');
+    expect(html).toContain('Needs attention');
+    expect(html).toContain('15 colour clashes found');
+    expect(html).toContain('🔴');
+  });
+});
+
+describe('generateHtmlReport: plain language', () => {
+  const html = generateHtmlReport(report(CONFUSABLE));
+
+  it('names the vision modes in plain words', () => {
+    expect(html).toContain('Normal Vision');
+    expect(html).toContain('Red-Blind (Protanopia)');
+    expect(html).toContain('Green-Blind (Deuteranopia)');
+    expect(html).toContain('Blue-Yellow Blind (Tritanopia)');
+  });
+
+  it('writes each clash as a sentence', () => {
+    expect(html).toContain('“Roads” and “Parks” look the same to red-blind viewers');
+  });
+
+  it('calls them colour clashes, not failing pairs', () => {
+    expect(html).toContain('Colour clashes');
+    expect(html).not.toContain('Confusable pairs');
+    expect(html).not.toContain('failing pairs');
+  });
+
+  it('calls them map colours, not classes', () => {
+    expect(html).toContain('Map colours');
+    expect(html).not.toContain('classes extracted');
+  });
+
+  it('keeps the numbers out of the plain-language sections', () => {
+    const upToTechnical = html.slice(0, html.indexOf('Technical details'));
+    expect(upToTechnical).not.toContain('ΔE00');
+    expect(upToTechnical).not.toContain('0.19');
+    expect(upToTechnical).not.toContain('1.01:1');
+  });
+
+  it('shows a clash as authored and as seen', () => {
+    expect(html).toContain('as authored → as seen');
+    // Under protanopia both colours land on the same olive.
+    expect((html.match(/#6d5f00/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('generateHtmlReport: by vision mode', () => {
+  it('counts clashes per mode', () => {
+    const html = generateHtmlReport(report(CONFUSABLE));
+    expect(html).toContain('Who is affected');
+    expect(html).toContain('1 clashing');
     expect(html).toContain('✓ clear');
   });
 
-  it('marks modes that were not audited', () => {
-    const limited = generateHtmlReport(report(CONFUSABLE, { modes: ['protan'] }));
-    expect(limited).toContain('not audited');
+  it('marks modes that were not checked', () => {
+    const html = generateHtmlReport(report(CONFUSABLE, { modes: ['protan'] }));
+    expect(html).toContain('not checked');
   });
 });
 
-describe('generateHtmlReport: swatches', () => {
+describe('generateHtmlReport: map colours', () => {
   const html = generateHtmlReport(report(CONFUSABLE));
 
-  it('draws a swatch for every class', () => {
+  it('draws a swatch for every colour', () => {
     expect(html).toContain('class="class-colour" style="background:#ff0000"');
     expect(html).toContain('class="class-colour" style="background:#006a00"');
   });
 
   it('labels every swatch, so identity never rests on colour alone', () => {
-    expect(html).toContain('>roads<');
-    expect(html).toContain('>parks<');
-    expect(html).toContain('#ff0000');
-    expect(html).toContain('#006a00');
+    expect(html).toContain('>Roads<');
+    expect(html).toContain('>Parks<');
   });
 
   it('shows the composited colour for a translucent class', () => {
@@ -153,26 +224,63 @@ describe('generateHtmlReport: swatches', () => {
     expect(translucent).toContain('style="background:#ff8080"');
     expect(translucent).toContain('50% opacity');
   });
+
+  it('handles a style with no colours at all', () => {
+    const empty = generateHtmlReport(report([]));
+    expect(empty).toContain('No colours were extracted');
+    expect(empty.startsWith('<!doctype html>')).toBe(true);
+  });
 });
 
-describe('generateHtmlReport: failing pairs', () => {
+describe('generateHtmlReport: technical details', () => {
   const html = generateHtmlReport(report(CONFUSABLE));
 
-  it('tables the failing pair with its ids, mode and numbers', () => {
-    expect(html).toContain('Confusable pairs');
-    expect(html).toContain('roads');
-    expect(html).toContain('parks');
-    expect(html).toContain('Protanopia');
+  it('keeps the full table, with the numbers', () => {
+    expect(html).toContain('Technical details');
     expect(html).toContain('>0.19</td>');
     expect(html).toContain('>1.01:1</td>');
+    expect(html).toContain('ΔE00');
   });
 
-  it('shows both colours as the affected reader sees them', () => {
-    // The whole point: under protanopia both land on the same olive.
-    const simulated = html.match(/#6d5f00/g) ?? [];
-    expect(simulated.length).toBeGreaterThanOrEqual(2);
-    expect(html).toContain('class="seen"');
+  it('explains what the numbers mean', () => {
+    expect(html).toContain('CIEDE2000 threshold of 10 ΔE00');
+    expect(html).toContain('WCAG 2.1 ratio');
   });
+
+  it('reports the threshold it ran at', () => {
+    expect(generateHtmlReport(report(CONFUSABLE, { threshold: 25 }))).toContain(
+      'CIEDE2000 threshold of 25 ΔE00',
+    );
+  });
+
+  it('says how many checks were made', () => {
+    // Two colours make one pair, judged under each of the four modes.
+    expect(html).toContain('4 judgements in total');
+  });
+
+  it('says plainly when nothing fell below the threshold', () => {
+    expect(generateHtmlReport(report(CLEAN))).toContain('No pair fell below the threshold');
+  });
+});
+
+describe('generateHtmlReport: clean audit', () => {
+  const html = generateHtmlReport(report(CLEAN));
+
+  it('says so plainly instead of showing an empty table', () => {
+    expect(html).toContain('Every pair of map colours stays apart');
+    expect(html).not.toContain('<tbody></tbody>');
+    expect(html).not.toContain('class="count count-bad"');
+    expect(generateHtmlReport(report(CONFUSABLE))).toContain('class="count count-bad"');
+  });
+
+  it('still lists the colours', () => {
+    expect(html).toContain('>Ink<');
+    expect(html).toContain('>Paper<');
+  });
+});
+
+describe('generateHtmlReport: preview filters', () => {
+  const html = generateHtmlReport(report(CONFUSABLE));
 
   it('defines an SVG filter for each dichromacy', () => {
     for (const mode of ['protan', 'deutan', 'tritan']) {
@@ -190,40 +298,31 @@ describe('generateHtmlReport: failing pairs', () => {
   });
 });
 
-describe('generateHtmlReport: clean audit', () => {
-  const html = generateHtmlReport(report(CLEAN));
-
-  it('says so plainly instead of showing an empty table', () => {
-    expect(html).toContain('Every pair stays at least 10 ΔE apart');
-    expect(html).not.toContain('<tbody></tbody>');
-    // The red count badge is markup, not just a stylesheet rule.
-    expect(html).not.toContain('class="count count-bad"');
-    expect(generateHtmlReport(report(CONFUSABLE))).toContain('class="count count-bad"');
-  });
-
-  it('still lists the classes', () => {
-    expect(html).toContain('>ink<');
-    expect(html).toContain('>paper<');
-  });
-
-  it('handles a style with no classes at all', () => {
-    const empty = generateHtmlReport(report([]));
-    expect(empty).toContain('No colours were extracted');
-    expect(empty.startsWith('<!doctype html>')).toBe(true);
-  });
-});
-
 describe('generateHtmlReport: escaping', () => {
   it('escapes class ids, so a style cannot inject markup', () => {
+    // A match branch keeps its label verbatim, so this is the id shape that
+    // carries a hostile string all the way to the page.
     const nasty = [
-      fill('<script>alert(1)</script>', '#ff0000'),
-      fill('a "quoted" & <b>bold</b>', '#006a00'),
+      fill('layer/<img src=x onerror=alert(1)>', '#ff0000'),
+      fill('layer/a "quoted" & ampersand', '#006a00'),
     ];
     const html = generateHtmlReport(report(nasty));
-    expect(html).not.toContain('<script>alert(1)</script>');
-    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
     expect(html).toContain('&quot;quoted&quot;');
-    expect(html).toContain('&amp;');
+    expect(html).toContain('&amp; ampersand');
+  });
+
+  it('escapes an id that would otherwise close a tag', () => {
+    const html = generateHtmlReport(report([fill('<script>alert(1)</script>', '#ff0000')]));
+    expect(html).not.toContain('<script');
+    expect(html).not.toContain('</script>');
+  });
+
+  it('escapes a hostile id inside a title attribute', () => {
+    const html = generateHtmlReport(report([fill('layer/" onmouseover="alert(1)', '#ff0000')]));
+    expect(html).not.toContain('onmouseover="alert(1)"');
+    expect(html).toContain('&quot; onmouseover=&quot;alert(1)');
   });
 
   it('escapes the style source', () => {

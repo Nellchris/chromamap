@@ -34,3 +34,14 @@ export {
 
 export type { ReportData } from './export/report.js';
 export { generateHtmlReport, generateJsonReport } from './export/report.js';
+
+export type { PlainSummary, VerdictLevel } from './export/language.js';
+export {
+  ABOUT_TEXT,
+  VISION_MODE_AUDIENCE,
+  VISION_MODE_LABELS,
+  VISION_MODE_SHORT,
+  clashSentence,
+  humaniseClassId,
+  summariseAudit,
+} from './export/language.js';

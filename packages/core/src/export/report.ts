@@ -2,7 +2,9 @@
  * Audit report rendering: one machine-readable form, one human-readable form.
  *
  * Both take the same {@link ReportData}, so a JSON report and an HTML report of
- * the same audit always say the same thing.
+ * the same audit always say the same thing. The HTML report leads with the
+ * plain-language verdict from `./language.js` and keeps the full numbers
+ * further down, where a reader who wants them can find them.
  */
 
 import { compositeOver } from '../audit/composite.js';
@@ -17,6 +19,14 @@ import {
 import { CVD_MATRICES, simulateCVD } from '../color/cvd.js';
 import { rgbToHex, type RGB } from '../color/parse.js';
 import type { MapClass } from '../style/extract.js';
+import {
+  ABOUT_TEXT,
+  VISION_MODE_LABELS,
+  VISION_MODE_SHORT,
+  clashSentence,
+  humaniseClassId,
+  summariseAudit,
+} from './language.js';
 
 /** Everything a report needs: the inputs, the verdict, and when it was run. */
 export interface ReportData {
@@ -85,24 +95,16 @@ function asSeen(color: RGB, mode: VisionMode): RGB {
   return mode === 'normal' ? color : simulateCVD(color, mode);
 }
 
-/** A labelled colour chip. Identity never rests on the colour alone. */
-function swatch(color: RGB, label: string): string {
-  const hex = rgbToHex(color);
-  return (
-    `<span class="chip">` +
-    `<span class="chip-colour" style="background:${hex}"></span>` +
-    `<span class="chip-label">${escapeHtml(label)}</span>` +
-    `</span>`
-  );
+/** A bare colour chip. */
+function chip(color: RGB, title: string): string {
+  return `<span class="chip-colour" style="background:${rgbToHex(color)}" title="${escapeHtml(title)}"></span>`;
 }
 
-/** One headline number. */
-function statTile(value: string, label: string, status: 'neutral' | 'good' | 'bad'): string {
+/** A labelled colour chip. Identity never rests on the colour alone. */
+function swatch(color: RGB, label: string): string {
   return (
-    `<div class="tile tile-${status}">` +
-    `<div class="tile-value">${escapeHtml(value)}</div>` +
-    `<div class="tile-label">${escapeHtml(label)}</div>` +
-    `</div>`
+    `<span class="chip">${chip(color, label)}` +
+    `<span class="chip-label">${escapeHtml(label)}</span></span>`
   );
 }
 
@@ -140,7 +142,7 @@ function visionControls(): string {
       `${index === 0 ? ' checked' : ''}>`,
   ).join('');
   const labels = VISION_MODES.map(
-    (mode) => `<label for="vision-${mode}">${escapeHtml(MODE_LABELS[mode])}</label>`,
+    (mode) => `<label for="vision-${mode}">${escapeHtml(VISION_MODE_LABELS[mode])}</label>`,
   ).join('');
   return (
     `${inputs}<div class="controls" role="group" aria-label="Preview vision mode">` +
@@ -148,82 +150,73 @@ function visionControls(): string {
   );
 }
 
-/** Human-readable names for the vision modes. */
-const MODE_LABELS: Record<VisionMode, string> = {
-  normal: 'Normal vision',
-  protan: 'Protanopia',
-  deutan: 'Deuteranopia',
-  tritan: 'Tritanopia',
-};
+/** The verdict a reader sees before anything else. */
+function verdictSection(data: ReportData): string {
+  const summary = summariseAudit(data.classes, data.audit);
+  const worst =
+    summary.worstLine === undefined
+      ? ''
+      : `<p class="verdict-worst">${escapeHtml(summary.worstLine)}</p>`;
 
-/** The grid of every class that was audited. */
-function classSection(classes: readonly MapClass[], background: RGB): string {
-  if (classes.length === 0) {
-    return `<section><h2>Classes</h2><p class="empty">No colours were extracted from this style.</p></section>`;
+  return (
+    `<section class="verdict verdict-${summary.level}">` +
+    `<p class="verdict-label"><span class="verdict-dot" aria-hidden="true">${summary.indicator}</span>` +
+    `${escapeHtml(summary.label)}</p>` +
+    `<p class="verdict-headline">${escapeHtml(summary.headline)}</p>` +
+    `<p class="verdict-detail">${escapeHtml(summary.detail)}</p>` +
+    `${worst}</section>`
+  );
+}
+
+/** The clashes, each as a sentence rather than a row of numbers. */
+function clashSection(data: ReportData, resolved: ResolvedOptions): string {
+  const { audit } = data;
+  if (audit.failing.length === 0) {
+    return (
+      `<section><h2>Colour clashes</h2>` +
+      `<p class="pass-note">✓ Every pair of map colours stays apart in ` +
+      `${escapeHtml(resolved.modes.map((mode) => VISION_MODE_SHORT[mode].toLowerCase()).join(', '))}.</p></section>`
+    );
   }
 
-  const cards = classes
-    .map((cls) => {
-      const flat = flatten(cls, background);
-      const opacity = cls.opacity === 1 ? '' : ` · ${String(Math.round(cls.opacity * 100))}% opacity`;
+  // One line per pair of colours, naming the worst mode it fails in, so a
+  // reader is not told the same thing four times over.
+  const worstByPair = new Map<string, AuditPair>();
+  for (const pair of audit.failing) {
+    const key = `${pair.classA.id}\u0000${pair.classB.id}`;
+    const current = worstByPair.get(key);
+    if (current === undefined || pair.dE < current.dE) {
+      worstByPair.set(key, pair);
+    }
+  }
+  const worst = [...worstByPair.values()].sort((a, b) => a.dE - b.dE);
+
+  const items = worst
+    .map((pair) => {
+      const nameA = humaniseClassId(pair.classA.id);
+      const nameB = humaniseClassId(pair.classB.id);
+      const flatA = flatten(pair.classA, resolved.background);
+      const flatB = flatten(pair.classB, resolved.background);
+      const seenA = asSeen(flatA, pair.mode);
+      const seenB = asSeen(flatB, pair.mode);
       return (
-        `<li class="class-card">` +
-        `<span class="class-colour" style="background:${rgbToHex(flat)}"></span>` +
-        `<span class="class-text">` +
-        `<span class="class-id">${escapeHtml(cls.id)}</span>` +
-        `<span class="class-meta">${escapeHtml(cls.type)} · ${rgbToHex(cls.color)}${escapeHtml(opacity)}</span>` +
-        `</span></li>`
+        `<li class="clash">` +
+        `<p class="clash-text">${escapeHtml(clashSentence(nameA, nameB, pair.mode))}</p>` +
+        `<p class="clash-colours">` +
+        `${chip(flatA, `${nameA}, as authored`)}${chip(flatB, `${nameB}, as authored`)}` +
+        `<span class="clash-arrow" aria-hidden="true">→</span>` +
+        `${chip(seenA, `${nameA}, simulated`)}${chip(seenB, `${nameB}, simulated`)}` +
+        `<span class="clash-caption">as authored → as seen</span>` +
+        `</p></li>`
       );
     })
     .join('');
 
   return (
-    `<section><h2>Classes <span class="count">${String(classes.length)}</span></h2>` +
-    `<p class="note">Swatches show each class as it lands on the audited background.</p>` +
-    `<ul class="class-grid">${cards}</ul></section>`
-  );
-}
-
-/** One row of the failing-pairs table. */
-function failingRow(pair: AuditPair, background: RGB): string {
-  const seenA = asSeen(flatten(pair.classA, background), pair.mode);
-  const seenB = asSeen(flatten(pair.classB, background), pair.mode);
-  return (
-    `<tr>` +
-    `<td>${swatch(flatten(pair.classA, background), pair.classA.id)}</td>` +
-    `<td>${swatch(flatten(pair.classB, background), pair.classB.id)}</td>` +
-    `<td>${escapeHtml(MODE_LABELS[pair.mode])}</td>` +
-    `<td class="num">${pair.dE.toFixed(2)}</td>` +
-    `<td class="num">${pair.contrast.toFixed(2)}:1</td>` +
-    `<td><span class="seen">${swatch(seenA, rgbToHex(seenA))}${swatch(seenB, rgbToHex(seenB))}</span></td>` +
-    `</tr>`
-  );
-}
-
-/** The failing-pairs table, or a clean bill of health. */
-function failingSection(audit: AuditResult, resolved: ResolvedOptions): string {
-  if (audit.failing.length === 0) {
-    return (
-      `<section><h2>Confusable pairs</h2>` +
-      `<p class="pass-note">✓ Every pair stays at least ${String(resolved.threshold)} ΔE apart in ` +
-      `${escapeHtml(resolved.modes.map((mode) => MODE_LABELS[mode]).join(', '))}.</p></section>`
-    );
-  }
-
-  const rows = audit.failing
-    .slice()
-    .sort((a, b) => a.dE - b.dE)
-    .map((pair) => failingRow(pair, resolved.background))
-    .join('');
-
-  return (
-    `<section><h2>Confusable pairs <span class="count count-bad">${String(audit.failing.length)}</span></h2>` +
-    `<p class="note">Pairs closer than ${String(resolved.threshold)} ΔE under at least one vision mode. ` +
-    `“As seen” shows both colours simulated under that mode.</p>` +
-    `<table><thead><tr>` +
-    `<th>Class A</th><th>Class B</th><th>Vision mode</th>` +
-    `<th class="num">ΔE00</th><th class="num">Contrast</th><th>As seen</th>` +
-    `</tr></thead><tbody>${rows}</tbody></table></section>`
+    `<section><h2>Colour clashes <span class="count count-bad">${String(worst.length)}</span></h2>` +
+    `<p class="note">Each line is one pair of map colours a reader cannot tell apart, shown ` +
+    `under the vision mode where they are closest.</p>` +
+    `<ul class="clashes">${items}</ul></section>`
   );
 }
 
@@ -232,10 +225,10 @@ function modeSection(audit: AuditResult, resolved: ResolvedOptions): string {
   const rows = VISION_MODES.map((mode) => {
     const audited = resolved.modes.includes(mode);
     const count = audit.summary.byMode[mode];
-    const verdict = !audited ? 'not audited' : count === 0 ? '✓ clear' : `✗ ${String(count)} failing`;
+    const verdict = !audited ? 'not checked' : count === 0 ? '✓ clear' : `✗ ${String(count)} clashing`;
     return (
       `<tr class="${!audited ? 'skipped' : count === 0 ? 'ok' : 'bad'}">` +
-      `<td>${escapeHtml(MODE_LABELS[mode])}</td>` +
+      `<td>${escapeHtml(VISION_MODE_LABELS[mode])}</td>` +
       `<td class="num">${audited ? String(count) : '—'}</td>` +
       `<td>${escapeHtml(verdict)}</td></tr>`
     );
@@ -243,8 +236,88 @@ function modeSection(audit: AuditResult, resolved: ResolvedOptions): string {
 
   return (
     `<section><h2>By vision mode</h2>` +
-    `<table class="modes"><thead><tr><th>Mode</th><th class="num">Failing</th><th>Verdict</th></tr></thead>` +
+    `<table class="modes"><thead><tr><th>Who is affected</th><th class="num">Clashes</th><th>Verdict</th></tr></thead>` +
     `<tbody>${rows}</tbody></table></section>`
+  );
+}
+
+/** Every colour the style paints, as swatch and name. */
+function colourSection(classes: readonly MapClass[], background: RGB): string {
+  if (classes.length === 0) {
+    return `<section><h2>Map colours</h2><p class="empty">No colours were extracted from this style.</p></section>`;
+  }
+
+  const cards = classes
+    .map((cls) => {
+      const flat = flatten(cls, background);
+      const name = humaniseClassId(cls.id);
+      const opacity = cls.opacity === 1 ? '' : ` · ${String(Math.round(cls.opacity * 100))}% opacity`;
+      return (
+        `<li class="class-card">` +
+        `<span class="class-colour" style="background:${rgbToHex(flat)}"></span>` +
+        `<span class="class-text">` +
+        `<span class="class-id">${escapeHtml(name)}</span>` +
+        `<span class="class-meta">${escapeHtml(cls.type)} · ${rgbToHex(cls.color)}${escapeHtml(opacity)}</span>` +
+        `</span></li>`
+      );
+    })
+    .join('');
+
+  return (
+    `<section><h2>Map colours <span class="count">${String(classes.length)}</span></h2>` +
+    `<p class="note">Each colour as it lands on the map background.</p>` +
+    `<ul class="class-grid">${cards}</ul></section>`
+  );
+}
+
+/** One row of the technical table. */
+function technicalRow(pair: AuditPair, background: RGB): string {
+  const seenA = asSeen(flatten(pair.classA, background), pair.mode);
+  const seenB = asSeen(flatten(pair.classB, background), pair.mode);
+  return (
+    `<tr>` +
+    `<td>${swatch(flatten(pair.classA, background), humaniseClassId(pair.classA.id))}</td>` +
+    `<td>${swatch(flatten(pair.classB, background), humaniseClassId(pair.classB.id))}</td>` +
+    `<td>${escapeHtml(VISION_MODE_LABELS[pair.mode])}</td>` +
+    `<td class="num">${pair.dE.toFixed(2)}</td>` +
+    `<td class="num">${pair.contrast.toFixed(2)}:1</td>` +
+    `<td><span class="seen">${swatch(seenA, rgbToHex(seenA))}${swatch(seenB, rgbToHex(seenB))}</span></td>` +
+    `</tr>`
+  );
+}
+
+/**
+ * The numbers behind the verdict.
+ *
+ * This is a document rather than a live panel, so the full table stays on the
+ * page; it simply comes after the plain-language account rather than instead
+ * of it.
+ */
+function technicalSection(data: ReportData, resolved: ResolvedOptions): string {
+  const rows = data.audit.failing
+    .slice()
+    .sort((a, b) => a.dE - b.dE)
+    .map((pair) => technicalRow(pair, resolved.background))
+    .join('');
+
+  const settings =
+    `<p class="note">Audited at a CIEDE2000 threshold of ${String(resolved.threshold)} ΔE00 over ` +
+    `<code>${rgbToHex(resolved.background)}</code>. ΔE00 is a measure of how different two colours ` +
+    `look: below about 1 nothing is visible, and this audit asks for ${String(resolved.threshold)}, ` +
+    `because map classes are read in small patches at a glance. Contrast is the WCAG 2.1 ratio.</p>`;
+
+  if (rows === '') {
+    return `<section><h2>Technical details</h2>${settings}<p class="empty">No pair fell below the threshold.</p></section>`;
+  }
+
+  return (
+    `<section><h2>Technical details</h2>${settings}` +
+    `<table><thead><tr>` +
+    `<th>Colour A</th><th>Colour B</th><th>Vision mode</th>` +
+    `<th class="num">ΔE00</th><th class="num">Contrast</th><th>As seen</th>` +
+    `</tr></thead><tbody>${rows}</tbody></table>` +
+    `<p class="note">${String(data.audit.summary.total)} judgements in total: every pair of map ` +
+    `colours, under every vision mode checked.</p></section>`
   );
 }
 
@@ -258,6 +331,7 @@ const STYLES = `
   --surface-2: #f5f6f8;
   --line: #dfe3e8;
   --bad: #b42318;
+  --warn: #b54708;
   --good: #1a7f4b;
   --radius: 6px;
 }
@@ -310,16 +384,33 @@ section {
   background: var(--surface-2); border-radius: 999px; padding: 1px 8px;
 }
 .count-bad { color: #fff; background: var(--bad); }
-.tiles { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.tile {
-  flex: 1 1 150px; border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 12px 14px; background: var(--surface);
+
+/* ---- the verdict, which is the first thing anyone reads ---- */
+.verdict { border-left: 4px solid var(--ink-3); }
+.verdict-accessible { border-left-color: var(--good); }
+.verdict-some-issues { border-left-color: var(--warn); }
+.verdict-needs-attention { border-left-color: var(--bad); }
+.verdict-label {
+  margin: 0 0 6px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-3); display: flex; align-items: center; gap: 7px;
 }
-.tile-value { font-size: 26px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.tile-label { color: var(--ink-3); font-size: 12px; margin-top: 4px; }
-.tile-bad { border-color: var(--bad); }
-.tile-bad .tile-value { color: var(--bad); }
-.tile-good .tile-value { color: var(--good); }
+.verdict-dot { font-size: 14px; }
+.verdict-accessible .verdict-label { color: var(--good); }
+.verdict-some-issues .verdict-label { color: var(--warn); }
+.verdict-needs-attention .verdict-label { color: var(--bad); }
+.verdict-headline { margin: 0 0 4px; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.verdict-detail { margin: 0; color: var(--ink-2); font-size: 14px; max-width: 62ch; }
+.verdict-worst { margin: 8px 0 0; color: var(--ink-3); font-size: 13px; }
+
+/* ---- clashes as sentences ---- */
+.clashes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.clash { padding: 9px 0; border-bottom: 1px solid var(--line); }
+.clash:last-child { border-bottom: 0; }
+.clash-text { margin: 0 0 6px; font-size: 14px; }
+.clash-colours { margin: 0; display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.clash-arrow { color: var(--ink-3); margin: 0 7px; }
+.clash-caption { color: var(--ink-3); font-size: 11px; margin-left: 10px; }
+
 .class-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .class-card {
   display: flex; align-items: center; gap: 10px; flex: 1 1 220px;
@@ -342,13 +433,12 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .modes tr.ok td:last-child { color: var(--good); }
 .chip { display: inline-flex; align-items: center; gap: 7px; }
 .chip-colour {
-  width: 18px; height: 18px; flex: none; border-radius: 3px;
+  width: 18px; height: 18px; flex: none; border-radius: 3px; display: inline-block;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
 }
 .chip-label { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-/* A 2px gap of surface between the two simulated swatches: without it two
-   collapsed colours would read as one block and hide the very thing being
-   shown. */
+/* A 2px gap of surface between two swatches: without it two collapsed colours
+   would read as one block and hide the very thing being shown. */
 .seen { display: inline-flex; gap: 2px; align-items: center; flex-wrap: wrap; }
 footer { color: var(--ink-3); font-size: 12px; max-width: 1040px; margin: 16px auto 0; }
 @media (max-width: 620px) {
@@ -368,43 +458,25 @@ footer { color: var(--ink-3); font-size: 12px; max-width: 1040px; margin: 16px a
  * filters, and there is no scripting. It can be opened from disk or emailed as
  * a single file.
  *
- * Every colour shown belongs to the audited style; the report's own chrome
- * stays in neutral ink so the two are never confused. Each swatch is labelled,
- * so nothing depends on colour alone - which matters rather more than usual in
- * a report that is itself meant to be read with colour vision deficiency.
+ * It reads top to bottom from verdict, to what clashes and for whom, to the
+ * colours themselves, to the numbers. Every colour shown belongs to the
+ * audited style; the report's own chrome stays in neutral ink so the two are
+ * never confused. Each swatch is labelled, so nothing depends on colour alone
+ * - which matters rather more than usual in a report that is itself meant to
+ * be read with colour vision deficiency.
  *
  * @param data - The report to render.
  * @returns A complete HTML document.
  */
 export function generateHtmlReport(data: ReportData): string {
   const resolved = resolveOptions(data.options);
-  const { summary } = data.audit;
-  const classPairs = (data.classes.length * (data.classes.length - 1)) / 2;
-  const failingClassPairs = new Set(
-    data.audit.failing.map((pair) => `${pair.classA.id}\u0000${pair.classB.id}`),
-  ).size;
-  const passingClassPairs = classPairs - failingClassPairs;
-
-  const tiles =
-    statTile(String(data.classes.length), 'classes extracted', 'neutral') +
-    statTile(String(summary.total), `judgements · ${String(resolved.modes.length)} modes`, 'neutral') +
-    statTile(
-      String(passingClassPairs),
-      `✓ pairs clear of ${String(resolved.threshold)} ΔE`,
-      passingClassPairs === classPairs ? 'good' : 'neutral',
-    ) +
-    statTile(
-      String(failingClassPairs),
-      '✗ pairs confusable',
-      failingClassPairs === 0 ? 'good' : 'bad',
-    );
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CartoAccessibility audit — ${escapeHtml(data.styleSource)}</title>
+<title>Map accessibility audit — ${escapeHtml(data.styleSource)}</title>
 <style>${STYLES}</style>
 </head>
 <body>
@@ -412,17 +484,18 @@ ${filterDefs()}
 ${visionControls()}
 <main class="report">
 <header>
-<h1>CartoAccessibility audit</h1>
+<h1>Map accessibility audit</h1>
+<p class="meta">Check if your map colours work for everyone.</p>
 <p class="meta">Source <code>${escapeHtml(data.styleSource)}</code> · run ${escapeHtml(data.timestamp)}</p>
-<p class="meta">Threshold ${String(resolved.threshold)} ΔE00 · background <code>${rgbToHex(resolved.background)}</code></p>
 </header>
-<section><h2>Summary</h2><div class="tiles">${tiles}</div></section>
+${verdictSection(data)}
+${clashSection(data, resolved)}
 ${modeSection(data.audit, resolved)}
-${failingSection(data.audit, resolved)}
-${classSection(data.classes, resolved.background)}
+${colourSection(data.classes, resolved.background)}
+${technicalSection(data, resolved)}
 </main>
 <footer>
-Distances are CIEDE2000 on colours composited over the background; contrast is the WCAG 2.1 ratio.
+${escapeHtml(ABOUT_TEXT)}
 Dichromacy simulation follows Machado, Oliveira and Fernandes (2009) at full severity.
 </footer>
 </body>

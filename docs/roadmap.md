@@ -55,6 +55,10 @@
    demo shows a before *and* an after. This is the obvious next demo step.
 9. **Slimmer JSON reports** — `audit-baseline.json` is 450 kB because every
    pair embeds both class objects in full; reference them by id instead.
+9b. **Display names in reports** — the web app reads real unit names out of
+   the GeoJSON, so it says “Kīlauea historical flows”; the CLI only has the
+   style, so its report says “Qkh”. Carry a display name on `MapClass`, read
+   from a style `metadata` block, so both read the same.
 10. **Code-split the web bundle** — MapLibre makes it 1 MB; load it lazily so
     the audit panel paints first.
 11. **Open the style in the app** — the demo hard-codes one style URL; let a
