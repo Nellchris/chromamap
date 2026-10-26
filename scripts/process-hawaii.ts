@@ -215,6 +215,7 @@ interface UnitMetadata {
   age: string;
   color: string;
   volcano: string;
+  rockType: string;
 }
 
 /**
@@ -315,6 +316,7 @@ interface OutputFeature {
 
 const output: OutputFeature[] = [];
 const volcanoesByUnit = new Map<string, Map<string, number>>();
+const rockTypesByUnit = new Map<string, Map<string, number>>();
 let positionsIn = 0;
 let positionsOut = 0;
 let droppedFeatures = 0;
@@ -382,6 +384,16 @@ for (const feature of allFeatures) {
   counts.set(volcano, (counts.get(volcano) ?? 0) + 1);
   volcanoesByUnit.set(unit, counts);
 
+  // Rock type is per feature in the source but near enough constant within a
+  // unit; keeping the commonest in the lookup saves repeating a long string
+  // across thousands of features.
+  const rockType = text(props['RockType']) ?? text(props['Lithology']);
+  if (rockType !== undefined) {
+    const rockCounts = rockTypesByUnit.get(unit) ?? new Map<string, number>();
+    rockCounts.set(rockType, (rockCounts.get(rockType) ?? 0) + 1);
+    rockTypesByUnit.set(unit, rockCounts);
+  }
+
   output.push({
     type: 'Feature',
     properties: {
@@ -413,7 +425,10 @@ for (const unit of [...new Set(output.map((feature) => feature.properties['MapUn
   const counts = volcanoesByUnit.get(unit) ?? new Map<string, number>();
   const volcano =
     [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Hawaiʻi';
+  const rockCounts = rockTypesByUnit.get(unit) ?? new Map<string, number>();
+  const rockType = [...rockCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
   metadata[unit] = {
+    rockType,
     name: described.name ?? unit,
     fullName: described.fullName ?? described.name ?? unit,
     age: described.age ?? 'unknown',
@@ -454,6 +469,17 @@ function buildBaselineStyle(units: Record<string, UnitMetadata>): unknown {
     pitch: 0,
     glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
     sources: {
+      // CARTO's raster Positron: light, free and keyless. OpenFreeMap serves
+      // this design as vector tiles only - its {z}/{x}/{y}.png path answers
+      // 403 - and the attribution has to name whoever actually serves the
+      // tiles, so it credits CARTO rather than OpenFreeMap.
+      basemap: {
+        type: 'raster',
+        tiles: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: '© OpenStreetMap contributors © CARTO',
+      },
       units: {
         type: 'geojson',
         data: '../data/units.geojson',
@@ -462,8 +488,17 @@ function buildBaselineStyle(units: Record<string, UnitMetadata>): unknown {
       },
     },
     layers: [
-      { id: 'ocean', type: 'background', paint: { 'background-color': '#a8cbe0' } },
-      { id: 'geologic-units', type: 'fill', source: 'units', paint: { 'fill-color': match } },
+      // A backdrop in Positron's own land colour, under the tiles: it is what
+      // shows before they load, and it is what the audit treats as the thing
+      // the semi-transparent geology is composited over.
+      { id: 'backdrop', type: 'background', paint: { 'background-color': '#f2efe9' } },
+      { id: 'basemap', type: 'raster', source: 'basemap' },
+      {
+        id: 'geologic-units',
+        type: 'fill',
+        source: 'units',
+        paint: { 'fill-color': match, 'fill-opacity': 0.85 },
+      },
       {
         id: 'unit-contacts',
         type: 'line',

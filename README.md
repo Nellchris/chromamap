@@ -59,11 +59,12 @@ pnpm install && pnpm dev     # http://localhost:5173
 
 The official USGS geological map of Hawaiʻi Island — Scientific Investigations
 Map 3143 (Sherrod and others, 2021) — audited live in the browser. 97 map
-units, 100 colours, and 1,101 confusable pairs. Switch the sidebar to
+units, 100 colours, and 1,295 confusable pairs, drawn over an OpenStreetMap
+basemap. Click any unit for its name, age and rock type. Switch the sidebar to
 Protanopia and the flow-by-flow distinctions the map depends on disappear.
 
 Then switch the map to **Accessible Version**: the same layers and the same
-data, repaletted, which takes 1,101 clashes down to 683. It does not reach
+data, repaletted, which takes 1,295 clashes down to 835. It does not reach
 zero, and cannot: see [demos/hawaii](demos/hawaii) for why, and for what the
 audit found in the published sheet before colour blindness is even considered.
 

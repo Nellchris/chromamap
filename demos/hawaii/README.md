@@ -7,7 +7,7 @@ audit has to say about it.
 | ---- | ---------- |
 | `data/units.geojson` | 5,681 polygons in 97 map units, Big Island only |
 | `data/unit-metadata.json` | Per-unit name, age, volcano and official USGS fill colour |
-| `styles/baseline.json` | A MapLibre style using the published USGS colours |
+| `styles/baseline.json` | A MapLibre style using the published USGS colours, over a CARTO Positron basemap |
 | `styles/remediated.json` | The same style with an accessible palette |
 | `audit-baseline.json` | The audit of the baseline |
 | `audit-remediated.json` | The audit of the remediated version |
@@ -44,22 +44,27 @@ Five units carry no `AreaFillRGB` in the source — `Qk3`, `Qka3`, `Qkc3`,
 `Qkld3` and `ow` — and are drawn in a neutral `#cccccc`. That is this project's
 fallback rather than anything the USGS published, and it has a consequence
 worth naming: those five share a colour with each other, which accounts for
-**15 of the 1,101 clashes below**. The other 1,086 are real.
+**15 of the 1,295 clashes below**. The other 1,280 are real.
 
 ## The finding
 
 | Vision mode | Baseline | Remediated |
 | ----------- | -------: | ---------: |
-| Normal | 213 | 129 |
-| Protanopia | 641 | 424 |
-| Deuteranopia | 686 | 431 |
-| Tritanopia | 509 | 305 |
-| **Confusable pairs** | **1,101** | **683** |
+| Normal | 258 | 187 |
+| Protanopia | 761 | 537 |
+| Deuteranopia | 834 | 557 |
+| Tritanopia | 601 | 365 |
+| **Confusable pairs** | **1,295** | **835** |
 
-Of 4,950 pairs of map colours, **1,101 are confusable** under at least one
-vision mode, and 99 of the 100 colours are caught up in at least one.
+Of 4,950 pairs of map colours, **1,295 are confusable** under at least one
+vision mode, and nearly every colour is caught up in at least one.
 
-The striking number is the 213 in the **normal vision** row. A colour-blindness
+The fills are drawn at 85% opacity so the basemap shows through, which washes
+them slightly towards the backdrop and costs about 190 extra clashes compared
+with drawing them opaque. That is a real cost of a real design choice, and the
+audit counts it rather than hiding it.
+
+The striking number is the 258 in the **normal vision** row. A colour-blindness
 audit was not needed to find those: the published sheet gives different units
 the *same* fill colour. Twelve pairs are byte-for-byte identical —
 
@@ -79,8 +84,8 @@ channels besides colour.
 ## The remediation, and its limit
 
 `generateAccessiblePalette` keeps each unit's hue and respaces the palette
-through lightness, then nudges hues where pairs still clash. It takes 1,101
-clashes down to **683** — a real improvement, and nowhere near a clean sheet.
+through lightness, then nudges hues where pairs still clash. It takes 1,295
+clashes down to **835** — a real improvement, and nowhere near a clean sheet.
 
 The arithmetic says why. Ninety-seven units spread across a 60 L\* band sit
 **0.6 L\* apart**, and CIEDE2000 between similar hues is close to the lightness
@@ -100,10 +105,10 @@ pnpm build
 pnpm demo:remediate                                          # remediated style
 node --max-old-space-size=4096 packages/cli/bin/carto-a11y.js \
   audit demos/hawaii/styles/baseline.json --format json \
-  --background '#a8cbe0' --output demos/hawaii/audit-baseline.json
+  --background '#f2efe9' --output demos/hawaii/audit-baseline.json
 node --max-old-space-size=4096 packages/cli/bin/carto-a11y.js \
   audit demos/hawaii/styles/remediated.json --format json \
-  --background '#a8cbe0' --output demos/hawaii/audit-remediated.json
+  --background '#f2efe9' --output demos/hawaii/audit-remediated.json
 ```
 
 The source archive is not committed: it is 26 MB zipped and freely available

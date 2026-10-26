@@ -15,6 +15,15 @@
   "pitch": 0,
   "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
   "sources": {
+    "basemap": {
+      "type": "raster",
+      "tiles": [
+        "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "maxzoom": 19,
+      "attribution": "© OpenStreetMap contributors © CARTO"
+    },
     "units": {
       "type": "geojson",
       "data": "../data/units.geojson",
@@ -23,11 +32,16 @@
   },
   "layers": [
     {
-      "id": "ocean",
+      "id": "backdrop",
       "type": "background",
       "paint": {
-        "background-color": "#a8cbe0"
+        "background-color": "#f2efe9"
       }
+    },
+    {
+      "id": "basemap",
+      "type": "raster",
+      "source": "basemap"
     },
     {
       "id": "geologic-units",
@@ -53,11 +67,11 @@
           "Qh1o",
           "#beb5aa",
           "Qh1y",
-          "#ded1c0",
+          "#c9d7c6",
           "Qh2",
           "#c49261",
           "Qh3",
-          "#007db3",
+          "#956e32",
           "Qh4",
           "#b19b91",
           "Qh5",
@@ -65,19 +79,19 @@
           "Qha4",
           "#0072ae",
           "Qhc",
-          "#653200",
+          "#004270",
           "Qhc1o",
-          "#4a3c28",
+          "#3f3f28",
           "Qhc1y",
           "#a26700",
           "Qhc2",
-          "#973400",
+          "#704f00",
           "Qhc3",
           "#684000",
           "Qhc4",
           "#5c382f",
           "Qhc5",
-          "#7f1949",
+          "#373c84",
           "Qhi",
           "#005498",
           "Qhm",
@@ -127,7 +141,7 @@
           "Qkc",
           "#736d00",
           "Qkc1",
-          "#00a266",
+          "#009cb0",
           "Qkc1o",
           "#898f00",
           "Qkc1y",
@@ -143,15 +157,15 @@
           "Qkh",
           "#a2a300",
           "Qkld1",
-          "#009ace",
+          "#9f9100",
           "Qkld2",
-          "#718d00",
+          "#008eb1",
           "Qkld3",
           "#7d7d7d",
           "Qkld4",
-          "#007550",
+          "#6b6900",
           "Qkld5",
-          "#007052",
+          "#616600",
           "Ql",
           "#b0becf",
           "Qla",
@@ -175,11 +189,11 @@
           "Qly",
           "#9895ce",
           "Qn",
-          "#1f694f",
+          "#61602b",
           "Qp1o",
           "#871d7a",
           "Qp1y",
-          "#9a1a1e",
+          "#891f7c",
           "Qp2",
           "#6f87a0",
           "Qp3",
@@ -197,7 +211,7 @@
           "Qpa4o",
           "#94ada3",
           "Qpa4y",
-          "#91afaf",
+          "#93adb7",
           "Qpa5",
           "#56c49f",
           "Qpc2",
@@ -215,13 +229,13 @@
           "Qplc",
           "#849f56",
           "Qpld",
-          "#b6d6cc",
+          "#c1d4c1",
           "Qpld3",
-          "#005d4c",
+          "#a7002c",
           "Qpld4o",
           "#7f1869",
           "Qpld5",
-          "#5c12cf",
+          "#9a003f",
           "Qplm",
           "#009d7d",
           "Qplmc",
@@ -235,7 +249,8 @@
           "ow",
           "#7e7e7e",
           "#808080"
-        ]
+        ],
+        "fill-opacity": 0.85
       }
     },
     {

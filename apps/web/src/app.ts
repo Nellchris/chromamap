@@ -14,6 +14,7 @@
 import {
   MapLibreMap,
   NavigationControl,
+  Popup,
   ScaleControl,
   setWorkerUrl,
   type LngLatBoundsLike,
@@ -29,9 +30,10 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import {
   ABOUT_TEXT,
   CVD_MATRICES,
+  DEFAULT_THRESHOLD,
   VISION_MODES,
   VISION_MODE_LABELS,
-  clashSentence,
+  VISION_MODE_SHORT,
   compositeOver,
   extractBackground,
   extractClasses,
@@ -105,12 +107,6 @@ function swatch(color: RGB, title: string, small = false): HTMLSpanElement {
   const node = el('span', small ? 'swatch swatch-sm' : 'swatch');
   node.style.background = rgbToHex(color);
   node.title = title;
-  return node;
-}
-
-function arrow(className: string): HTMLSpanElement {
-  const node = el('span', className, '→');
-  node.setAttribute('aria-hidden', 'true');
   return node;
 }
 
@@ -201,18 +197,30 @@ function unitBounds(geojson: unknown): Map<string, Bbox> {
  * `extractClasses` fills `displayName` in by itself when a style holds its
  * GeoJSON inline; this demo loads its data by URL, so the app does that job.
  */
-function unitNames(metadata: unknown): Map<string, string> {
-  const names = new Map<string, string>();
+function unitInfo(metadata: unknown): Map<string, UnitInfo> {
+  const units = new Map<string, UnitInfo>();
   if (typeof metadata !== 'object' || metadata === null) {
-    return names;
+    return units;
   }
-  for (const [unit, entry] of Object.entries(metadata as Record<string, unknown>)) {
-    const fullName = (entry as { fullName?: unknown })?.fullName;
-    if (typeof fullName === 'string' && fullName !== '') {
-      names.set(unit, fullName);
-    }
+  const str = (value: unknown): string => (typeof value === 'string' ? value : '');
+  for (const [unit, raw] of Object.entries(metadata as Record<string, unknown>)) {
+    const entry = raw as Record<string, unknown> | null;
+    units.set(unit, {
+      fullName: str(entry?.['fullName']) || unit,
+      age: str(entry?.['age']),
+      volcano: str(entry?.['volcano']) || 'Hawaiʻi',
+      rockType: str(entry?.['rockType']),
+    });
   }
-  return names;
+  return units;
+}
+
+/** What `unit-metadata.json` knows about one map unit. */
+interface UnitInfo {
+  fullName: string;
+  age: string;
+  volcano: string;
+  rockType: string;
 }
 
 /** `geologic-units/Qkh` names unit `Qkh`; a plain layer id names nothing. */
@@ -275,6 +283,10 @@ interface DemoState {
   variants: Variant[];
   active: VariantKey;
   bounds: Map<string, Bbox>;
+  /** Name, age, volcano and rock type per map unit. */
+  units: Map<string, UnitInfo>;
+  /** The source GeoJSON, kept so the palette can be exported with it. */
+  geojson: unknown;
   mode: VisionMode;
   activePair: AuditPair | undefined;
   showAllClashes: boolean;
@@ -301,13 +313,13 @@ function buildVariant(
   key: VariantKey,
   label: string,
   style: unknown,
-  names: ReadonlyMap<string, string>,
+  units: ReadonlyMap<string, UnitInfo>,
 ): Variant {
   const background = extractBackground(style);
   const classes = extractClasses(style).map((cls) => {
     const unit = unitOf(cls.id);
-    const name = unit === undefined ? undefined : names.get(unit);
-    if (name !== undefined) {
+    const name = unit === undefined ? undefined : units.get(unit)?.fullName;
+    if (name !== undefined && name !== '') {
       cls.displayName = name;
     }
     return cls;
@@ -391,16 +403,16 @@ export async function startApp(root: HTMLElement): Promise<void> {
     return;
   }
 
-  const names = unitNames(metadata);
+  const units_ = unitInfo(metadata);
   const variants: Variant[] = [
-    buildVariant('original', VARIANTS.original.label, baseline, names),
+    buildVariant('original', VARIANTS.original.label, baseline, units_),
   ];
 
   // The remediated style is optional: without it the demo simply has nothing
   // to compare against, rather than failing to start.
   try {
     const remediated = await loadJson(VARIANTS.accessible.url);
-    variants.push(buildVariant('accessible', VARIANTS.accessible.label, remediated, names));
+    variants.push(buildVariant('accessible', VARIANTS.accessible.label, remediated, units_));
   } catch (error) {
     console.warn('[demo] no accessible version to compare with:', error);
   }
@@ -435,6 +447,8 @@ export async function startApp(root: HTMLElement): Promise<void> {
     variants,
     active: 'original',
     bounds: unitBounds(units),
+    units: units_,
+    geojson: units,
     mode: 'normal',
     activePair: undefined,
     showAllClashes: false,
@@ -478,6 +492,8 @@ export async function startApp(root: HTMLElement): Promise<void> {
     addHighlightLayer(map);
   });
 
+  attachUnitPopup(map, state);
+
   map.once('load', () => {
     // The style's own centre and zoom assume a full window; in a narrow one,
     // next to the panel, they leave the reader looking at open ocean. Framing
@@ -494,6 +510,75 @@ export async function startApp(root: HTMLElement): Promise<void> {
         { padding: framePadding(sidebar), duration: 0 },
       );
     }
+  });
+}
+
+/**
+ * Clicking a polygon says what it is.
+ *
+ * The colour shown is the one the map is painting right now, so it follows the
+ * before/after switch and the vision-mode preview rather than quoting the
+ * style file.
+ */
+function attachUnitPopup(map: MapLibreMap, state: DemoState): void {
+  let popup: Popup | undefined;
+
+  map.on('click', 'geologic-units', (event) => {
+    const feature = event.features?.[0];
+    const unit = feature?.properties?.['MapUnit'];
+    if (typeof unit !== 'string') {
+      return;
+    }
+    const info = state.units.get(unit);
+    const variant = current(state);
+    const cls = variant.classes.find((entry) => unitOf(entry.id) === unit);
+    const colour =
+      cls === undefined ? undefined : seenColor(cls, variant.background, state.mode);
+
+    const node = el('div', 'popup');
+    const head = el('div', 'popup-head');
+    if (colour !== undefined) {
+      const chip = el('span', 'popup-swatch');
+      chip.style.background = rgbToHex(colour);
+      head.append(chip);
+    }
+    head.append(el('span', 'popup-code', unit));
+    node.append(head);
+
+    const name = info?.fullName ?? unit;
+    if (name !== unit) {
+      node.append(el('p', 'popup-name', name));
+    }
+    const rows: Array<[string, string]> = [];
+    if (info?.age !== undefined && info.age !== '' && info.age !== 'unknown') {
+      rows.push(['Age', info.age]);
+    }
+    if (info?.rockType !== undefined && info.rockType !== '') {
+      rows.push(['Rock', info.rockType]);
+    }
+    if (info?.volcano !== undefined && info.volcano !== '') {
+      rows.push(['Volcano', info.volcano]);
+    }
+    if (rows.length > 0) {
+      const list = el('dl', 'popup-rows');
+      for (const [term, value] of rows) {
+        list.append(el('dt', undefined, term), el('dd', undefined, value));
+      }
+      node.append(list);
+    }
+
+    popup?.remove();
+    popup = new Popup({ closeButton: true, maxWidth: '260px', className: 'unit-popup' })
+      .setLngLat(event.lngLat)
+      .setDOMContent(node)
+      .addTo(map);
+  });
+
+  map.on('mouseenter', 'geologic-units', () => {
+    map.getCanvas().style.cursor = 'pointer';
+  });
+  map.on('mouseleave', 'geologic-units', () => {
+    map.getCanvas().style.cursor = '';
   });
 }
 
@@ -565,6 +650,11 @@ function focusPair(
 
 /* ------------------------------------------------------------------ *
  * Panels
+ *
+ * The panel is meant to be read in three glances: the score, the worst
+ * clashes, the fix. Everything else - the legend, the numbers, the
+ * methodology, the explanation of what a clash is - is a disclosure the
+ * reader opens on purpose.
  * ------------------------------------------------------------------ */
 
 interface PanelHandlers {
@@ -593,6 +683,20 @@ function clashesByPair(audit: AuditResult): AuditPair[] {
   return [...worstByPair.values()].sort((a, b) => a.dE - b.dE);
 }
 
+/** A unit code is the short name; the full name is the tooltip. */
+function codeOf(cls: MapClass): string {
+  return unitOf(cls.id) ?? humaniseClassId(cls.id);
+}
+
+/** A `<details>` card with a quiet summary. */
+function disclosure(summaryText: string, ...content: HTMLElement[]): HTMLElement {
+  const section = el('section', 'panel');
+  const details = el('details');
+  details.append(el('summary', 'disclosure-summary', summaryText), ...content);
+  section.append(details);
+  return section;
+}
+
 function renderPanel(mounts: Mounts, state: DemoState, handlers: PanelHandlers): void {
   mounts.variant.replaceChildren(
     ...(state.variants.length > 1 ? [variantSwitch(state, handlers)] : []),
@@ -601,9 +705,9 @@ function renderPanel(mounts: Mounts, state: DemoState, handlers: PanelHandlers):
 
   const sections: HTMLElement[] = [visionPanel(state, handlers), clashPanel(state, handlers)];
   if (state.active === 'accessible') {
-    sections.push(changedPanel(state));
+    sections.push(changedPanel(state), exportPanel(state));
   }
-  sections.push(colourPanel(state), technicalPanel(state), aboutPanel());
+  sections.push(legendPanel(state), technicalPanel(state), aboutPanel());
   mounts.body.replaceChildren(...sections);
 
   // The caption only speaks up when the map is not showing normal vision.
@@ -635,11 +739,11 @@ function variantSwitch(state: DemoState, handlers: PanelHandlers): HTMLElement {
     group.append(button);
   }
 
-  wrap.append(group, el('p', 'variant-hint', 'Compare the original and improved versions'));
+  wrap.append(group);
   return wrap;
 }
 
-/** The score: the first thing anyone reads, and always on screen. */
+/** The score: headline first, the explanation only if asked for. */
 function scoreCard(state: DemoState): HTMLElement {
   const variant = current(state);
   const summary = summariseAudit(variant.classes, variant.audit);
@@ -651,30 +755,35 @@ function scoreCard(state: DemoState): HTMLElement {
   dot.setAttribute('aria-hidden', 'true');
   label.append(dot, el('span', undefined, summary.label));
 
-  card.append(
-    el('p', 'score-title', 'Map Accessibility Score'),
-    label,
-    el('p', 'score-headline', summary.headline),
-    el('p', 'score-detail', summary.detail),
-  );
-  if (summary.worstLine !== undefined) {
-    card.append(el('p', 'score-worst', summary.worstLine));
-  }
+  card.append(label, el('p', 'score-headline', summary.headline));
 
   const original = state.variants.find((entry) => entry.key === 'original');
   if (variant.key === 'accessible' && original !== undefined) {
     const was = summariseAudit(original.classes, original.audit).clashes;
-    card.append(el('p', 'score-change', `Down from ${String(was)} on the original map`));
+    card.append(el('p', 'score-change', `Down from ${String(was)}`));
   }
+
+  // Everything that explains the number, folded away.
+  const details = el('details', 'score-more');
+  details.append(el('summary', 'score-more-summary', 'What does this mean?'));
+  details.append(el('p', 'score-detail', summary.detail));
+  if (summary.worstLine !== undefined) {
+    details.append(el('p', 'score-worst', summary.worstLine));
+  }
+  details.append(
+    el(
+      'p',
+      'score-detail',
+      'Two map colours clash when a reader cannot tell them apart. The fewer, the better.',
+    ),
+  );
+  card.append(details);
   return card;
 }
 
 function visionPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
   const section = el('section', 'panel');
-  section.append(
-    el('h2', 'panel-title', 'Preview as'),
-    el('p', 'note', 'Shows the map, and the colours below, the way each reader sees it.'),
-  );
+  section.append(el('h2', 'panel-title', 'Preview as'));
 
   const group = el('div', 'modes');
   group.setAttribute('role', 'radiogroup');
@@ -698,24 +807,22 @@ function visionPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
   return section;
 }
 
-/** The clashes, each a card: a sentence, the colours, and a way to the map. */
+/** The clashes: big swatches, unit codes, a distance. */
 function clashPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
   const variant = current(state);
   const section = el('section', 'panel');
   const clashes = clashesByPair(variant.audit);
 
-  const heading = el('h2', 'panel-title', 'Colour clashes');
+  const heading = el('h2', 'panel-title', 'Worst clashes');
   if (clashes.length > 0) {
     heading.append(el('span', 'panel-count is-bad', String(clashes.length)));
   }
   section.append(heading);
 
   if (clashes.length === 0) {
-    section.append(el('p', 'empty', 'Every colour on this map stays distinguishable ✓'));
+    section.append(el('p', 'empty', 'Nothing on this map is confusable ✓'));
     return section;
   }
-
-  section.append(el('p', 'note', 'Pairs a reader cannot tell apart, closest first.'));
 
   const shown = clashes.slice(0, state.showAllClashes ? CLASHES_MAX : CLASHES_SHOWN);
   const list = el('ul', 'list');
@@ -726,21 +833,25 @@ function clashPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
 
     const nameA = humaniseClassId(pair.classA);
     const nameB = humaniseClassId(pair.classB);
-    card.append(el('p', 'clash-text', clashSentence(nameA, nameB, pair.mode)));
+    card.title = `${nameA} ↔ ${nameB} — ${VISION_MODE_LABELS[pair.mode]}`;
 
     const colours = el('div', 'clash-colours');
     colours.append(
-      swatch(seenColor(pair.classA, variant.background, 'normal'), `${nameA}, as authored`, true),
-      swatch(seenColor(pair.classB, variant.background, 'normal'), `${nameB}, as authored`, true),
-      arrow('clash-arrow'),
-      swatch(seenColor(pair.classA, variant.background, pair.mode), `${nameA}, as seen`, true),
-      swatch(seenColor(pair.classB, variant.background, pair.mode), `${nameB}, as seen`, true),
+      swatch(seenColor(pair.classA, variant.background, pair.mode), nameA),
+      swatch(seenColor(pair.classB, variant.background, pair.mode), nameB),
     );
 
-    const foot = el('div', 'clash-foot');
-    foot.append(colours, el('span', 'clash-link', 'View on map →'));
-    card.append(foot);
+    const text = el('div', 'clash-labels');
+    text.append(
+      el('span', 'clash-codes', `${codeOf(pair.classA)} ↔ ${codeOf(pair.classB)}`),
+      el(
+        'span',
+        'clash-meta',
+        `ΔE ${pair.dE.toFixed(1)} · ${VISION_MODE_SHORT[pair.mode].toLowerCase()}`,
+      ),
+    );
 
+    card.append(colours, text);
     card.addEventListener('click', () => {
       handlers.onPair(pair);
     });
@@ -756,8 +867,8 @@ function clashPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
       state.showAllClashes
         ? 'Show fewer'
         : clashes.length > CLASHES_MAX
-          ? `Show the worst ${String(CLASHES_MAX)} of ${String(clashes.length)} clashes`
-          : `Show all ${String(clashes.length)} clashes`,
+          ? `Show worst ${String(CLASHES_MAX)} of ${String(clashes.length)}`
+          : `Show all ${String(clashes.length)}`,
     );
     more.type = 'button';
     more.setAttribute('aria-expanded', String(state.showAllClashes));
@@ -774,7 +885,8 @@ function changedPanel(state: DemoState): HTMLElement {
   const accessible = current(state);
   const before = new Map((original?.classes ?? []).map((cls) => [cls.id, cls]));
 
-  section.append(el('h2', 'panel-title', 'What changed'));
+  const heading = el('h2', 'panel-title', 'What changed');
+  section.append(heading);
 
   const strip = el('ul', 'changed-strip');
   let changed = 0;
@@ -798,64 +910,159 @@ function changedPanel(state: DemoState): HTMLElement {
     changed += 1;
   }
 
+  heading.append(el('span', 'panel-count', String(changed)));
+  section.append(strip);
+  return section;
+}
+
+/* ------------------------------------------------------------------ *
+ * Export
+ * ------------------------------------------------------------------ */
+
+/** Hand the browser a file without a round trip to a server. */
+function download(filename: string, contents: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([contents], { type }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.style.display = 'none';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // Give the click a tick to start before the blob is reclaimed.
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
+}
+
+/** The remediated palette, keyed by map unit. */
+function remediatedColours(state: DemoState): Map<string, string> {
+  const colours = new Map<string, string>();
+  for (const cls of current(state).classes) {
+    const unit = unitOf(cls.id);
+    if (unit !== undefined) {
+      colours.set(unit, rgbToHex(cls.color));
+    }
+  }
+  return colours;
+}
+
+/** Take the remediated style away and use it elsewhere. */
+function exportPanel(state: DemoState): HTMLElement {
+  const section = el('section', 'panel');
+  section.append(el('h2', 'panel-title', 'Take it with you'));
+
+  const styleButton = el('button', 'secondary-button', 'Download remediated style');
+  styleButton.type = 'button';
+  styleButton.addEventListener('click', () => {
+    download(
+      'remediated-style.json',
+      `${JSON.stringify(current(state).style, null, 2)}\n`,
+      'application/json',
+    );
+  });
+  section.append(styleButton, el('p', 'secondary-hint', 'Use this style in your own MapLibre map'));
+
+  const dataButton = el('button', 'secondary-button', 'Download remediated GeoJSON');
+  dataButton.type = 'button';
+  dataButton.addEventListener('click', () => {
+    const colours = remediatedColours(state);
+    const source = state.geojson as { features?: unknown } | null;
+    const features = Array.isArray(source?.features) ? source.features : [];
+    const exported = {
+      ...(typeof source === 'object' && source !== null ? source : {}),
+      features: features.map((feature) => {
+        const entry = feature as { properties?: Record<string, unknown> };
+        const unit = entry.properties?.['MapUnit'];
+        const colour = typeof unit === 'string' ? colours.get(unit) : undefined;
+        return {
+          ...entry,
+          properties: {
+            ...entry.properties,
+            ...(colour === undefined ? {} : { remediatedColor: colour }),
+          },
+        };
+      }),
+    };
+    download('remediated-units.geojson', `${JSON.stringify(exported)}\n`, 'application/geo+json');
+  });
   section.append(
-    el('p', 'note', `${String(changed)} map colours repaletted — before on the left, after on the right.`),
-    strip,
+    dataButton,
+    el('p', 'secondary-hint', 'GeoJSON with accessible colours added to each feature'),
   );
   return section;
 }
 
-/** Every colour the map paints: swatch and name, nothing else. */
-function colourPanel(state: DemoState): HTMLElement {
+/* ------------------------------------------------------------------ *
+ * Legend
+ * ------------------------------------------------------------------ */
+
+/**
+ * Every map unit, grouped by the volcano that built it.
+ *
+ * The swatches show the colours the map is painting now, so the legend
+ * follows the before/after switch and the vision-mode preview rather than
+ * quoting the style file.
+ */
+function legendPanel(state: DemoState): HTMLElement {
   const variant = current(state);
-  const section = el('section', 'panel');
-  const heading = el('h2', 'panel-title', 'Map colours');
-  heading.append(el('span', 'panel-count', String(variant.classes.length)));
-  section.append(heading);
+  const byVolcano = new Map<string, MapClass[]>();
 
-  if (state.mode !== 'normal') {
-    section.append(
-      el(
-        'p',
-        'note',
-        `Left as authored, right as a ${VISION_MODE_LABELS[state.mode].toLowerCase()} reader sees it.`,
-      ),
-    );
-  }
-
-  const list = el('ul', 'list');
   for (const cls of variant.classes) {
-    const item = el('li', 'klass');
-    const name = humaniseClassId(cls);
-    const colours = el('div', 'klass-colours');
-    colours.append(swatch(seenColor(cls, variant.background, 'normal'), `${name}, as authored`));
-    if (state.mode !== 'normal') {
-      colours.append(
-        arrow('klass-arrow'),
-        swatch(seenColor(cls, variant.background, state.mode), `${name}, as seen`),
-      );
+    const unit = unitOf(cls.id);
+    if (unit === undefined) {
+      continue;
     }
-    item.append(colours, el('span', 'klass-name', name));
-    list.append(item);
+    const volcano = state.units.get(unit)?.volcano ?? 'Other';
+    byVolcano.set(volcano, [...(byVolcano.get(volcano) ?? []), cls]);
   }
-  section.append(list);
-  return section;
+
+  const body = el('div', 'legend');
+  const volcanoes = [...byVolcano.keys()].sort((a, b) => a.localeCompare(b));
+  for (const volcano of volcanoes) {
+    const group = byVolcano.get(volcano) ?? [];
+    body.append(el('p', 'legend-group', `${volcano} · ${String(group.length)}`));
+    const list = el('ul', 'legend-list');
+    for (const cls of group) {
+      const unit = unitOf(cls.id) ?? cls.id;
+      const info = state.units.get(unit);
+      const item = el('li', 'legend-item');
+      const chip = el('span', 'legend-swatch');
+      chip.style.background = rgbToHex(seenColor(cls, variant.background, state.mode));
+      const name = info?.fullName ?? unit;
+      item.title = `${unit} — ${name}`;
+      item.append(
+        chip,
+        el('span', 'legend-code', unit),
+        el('span', 'legend-name', name),
+      );
+      list.append(item);
+    }
+    body.append(list);
+  }
+
+  const count = variant.classes.filter((cls) => unitOf(cls.id) !== undefined).length;
+  return disclosure(`Legend · ${String(count)} units`, body);
 }
 
-/** The numbers, for anyone who wants them, folded away by default. */
+/* ------------------------------------------------------------------ *
+ * Technical details and About
+ * ------------------------------------------------------------------ */
+
 function technicalPanel(state: DemoState): HTMLElement {
   const variant = current(state);
-  const section = el('section', 'panel');
-  const details = el('details', 'technical');
-  details.append(el('summary', 'technical-summary', 'Technical details'));
-
   const { audit } = variant;
-  details.append(
+  const body = el('div');
+
+  body.append(
     el(
       'p',
       'note',
-      `${String(audit.summary.total)} checks in all: every pair of map colours under every ` +
-        `vision mode. A pair is reported when its CIEDE2000 distance (ΔE00) falls below 10.`,
+      `${String(audit.summary.total)} checks: every pair of map colours under every vision ` +
+        `mode. A pair is reported when its CIEDE2000 distance (ΔE00) falls below ` +
+        `${String(DEFAULT_THRESHOLD)}, measured on colours composited over ` +
+        `${rgbToHex(variant.background)}. Contrast is the WCAG 2.1 ratio. Dichromacy ` +
+        `simulation follows Machado, Oliveira and Fernandes (2009) at full severity.`,
     ),
   );
 
@@ -874,7 +1081,7 @@ function technicalPanel(state: DemoState): HTMLElement {
     modeBody.append(row);
   }
   modes.append(modeHead, modeBody);
-  details.append(el('p', 'technical-heading', 'By vision mode'), modes);
+  body.append(el('p', 'technical-heading', 'By vision mode'), modes);
 
   if (audit.failing.length > 0) {
     const table = el('table', 'data-table');
@@ -882,17 +1089,13 @@ function technicalPanel(state: DemoState): HTMLElement {
     const headRow = el('tr');
     headRow.append(el('th', undefined, 'Pair'), el('th', 'num', 'ΔE00'), el('th', 'num', 'Contrast'));
     head.append(headRow);
-    const body = el('tbody');
+    const tableBody = el('tbody');
     const sorted = [...audit.failing].sort((a, b) => a.dE - b.dE);
     for (const pair of sorted.slice(0, TECHNICAL_ROWS_MAX)) {
       const row = el('tr');
       const cell = el('td');
       cell.append(
-        el(
-          'span',
-          'data-pair',
-          `${humaniseClassId(pair.classA)} ↔ ${humaniseClassId(pair.classB)}`,
-        ),
+        el('span', 'data-pair', `${codeOf(pair.classA)} ↔ ${codeOf(pair.classB)}`),
         el('span', 'data-mode', VISION_MODE_LABELS[pair.mode]),
       );
       row.append(
@@ -900,29 +1103,24 @@ function technicalPanel(state: DemoState): HTMLElement {
         el('td', 'num', pair.dE.toFixed(2)),
         el('td', 'num', `${pair.contrast.toFixed(2)}:1`),
       );
-      body.append(row);
+      tableBody.append(row);
     }
-    table.append(head, body);
-    details.append(
+    table.append(head, tableBody);
+    body.append(
       el(
         'p',
         'technical-heading',
         audit.failing.length > TECHNICAL_ROWS_MAX
-          ? `Closest ${String(TECHNICAL_ROWS_MAX)} of ${String(audit.failing.length)} clashes, from ${String(audit.summary.total)} checks`
-          : `Every clash (${String(audit.failing.length)} of ${String(audit.summary.total)} checks)`,
+          ? `Closest ${String(TECHNICAL_ROWS_MAX)} of ${String(audit.failing.length)} clashes`
+          : `Every clash (${String(audit.failing.length)})`,
       ),
       table,
     );
   }
 
-  section.append(details);
-  return section;
+  return disclosure('Technical details', body);
 }
 
 function aboutPanel(): HTMLElement {
-  const section = el('section', 'panel about');
-  const details = el('details');
-  details.append(el('summary', 'about-summary', 'About'), el('p', 'about-text', ABOUT_TEXT));
-  section.append(details);
-  return section;
+  return disclosure('About', el('p', 'about-text', ABOUT_TEXT));
 }

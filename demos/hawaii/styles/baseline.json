@@ -15,6 +15,15 @@
   "pitch": 0,
   "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
   "sources": {
+    "basemap": {
+      "type": "raster",
+      "tiles": [
+        "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "maxzoom": 19,
+      "attribution": "© OpenStreetMap contributors © CARTO"
+    },
     "units": {
       "type": "geojson",
       "data": "../data/units.geojson",
@@ -23,11 +32,16 @@
   },
   "layers": [
     {
-      "id": "ocean",
+      "id": "backdrop",
       "type": "background",
       "paint": {
-        "background-color": "#a8cbe0"
+        "background-color": "#f2efe9"
       }
+    },
+    {
+      "id": "basemap",
+      "type": "raster",
+      "source": "basemap"
     },
     {
       "id": "geologic-units",
@@ -235,7 +249,8 @@
           "ow",
           "#cccccc",
           "#cccccc"
-        ]
+        ],
+        "fill-opacity": 0.85
       }
     },
     {
