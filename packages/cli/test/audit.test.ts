@@ -91,10 +91,11 @@ describe('audit: json format', () => {
     const result = run(['audit', STYLE_PATH, '--format', 'json'], io);
     const parsed = JSON.parse(result.output) as Record<string, unknown>;
     expect(Object.keys(parsed).sort()).toEqual([
-      'audit',
+      'clashes',
       'classes',
       'options',
       'styleSource',
+      'summary',
       'timestamp',
     ]);
     expect(parsed['styleSource']).toBe(STYLE_PATH);
@@ -126,9 +127,10 @@ describe('audit: json format', () => {
     const { io } = memoryIo();
     const parsed = JSON.parse(
       run(['audit', STYLE_PATH, '--format', 'json'], io).output,
-    ) as { audit: { summary: { total: number; failing: number } } };
-    expect(parsed.audit.summary.total).toBe(24);
-    expect(parsed.audit.summary.failing).toBe(1);
+    ) as { summary: { total: number; failing: number }; clashes: unknown[] };
+    expect(parsed.summary.total).toBe(24);
+    expect(parsed.summary.failing).toBe(1);
+    expect(parsed.clashes).toHaveLength(1);
   });
 });
 
@@ -189,7 +191,7 @@ describe('audit: --output', () => {
     const { io, written } = memoryIo();
     run(['audit', STYLE_PATH, '--format', 'json', '--output', 'out.json'], io);
     const parsed: unknown = JSON.parse(written.get('out.json') ?? '');
-    expect(parsed).toHaveProperty('audit');
+    expect(parsed).toHaveProperty('clashes');
   });
 
   it('reports a write failure without pretending it worked', () => {

@@ -50,6 +50,15 @@ const HUE_NUDGE_DEGREES = 30;
  */
 const SWEEP_ROUNDS = 48;
 
+/**
+ * How many trial audits a single call may spend.
+ *
+ * Generous for the palettes this is meant for - a dozen classes never comes
+ * close - and a hard stop for a ninety-class geological map, where an
+ * unbounded search would run for minutes.
+ */
+const AUDIT_BUDGET = 600;
+
 /** Rounds of single-colour polishing after the sweep. */
 const POLISH_ROUNDS = 24;
 
@@ -155,8 +164,15 @@ export function generateAccessiblePalette(
         : REMEDIATION_LIGHTNESS.min + (span * rank) / (order.length - 1);
   });
 
-  const countClashes = (candidate: readonly Lab[]): number =>
-    clashingPairs(applied(classes, candidate), auditOptions).length;
+  // Every trial costs a full audit, which is quadratic in the class count: a
+  // hundred classes is 19,800 comparisons a go. The budget stops a large
+  // palette from searching for minutes on end, and is far larger than a small
+  // one ever uses.
+  let auditsLeft = AUDIT_BUDGET;
+  const countClashes = (candidate: readonly Lab[]): number => {
+    auditsLeft -= 1;
+    return clashingPairs(applied(classes, candidate), auditOptions).length;
+  };
 
   let best = labs.map((lab) => ({ ...lab }));
   let bestClashes = countClashes(best);
@@ -165,7 +181,7 @@ export function generateAccessiblePalette(
   // together, a turn at a time, and keep whichever arrangement came out best.
   // Rotating one class at a time from the start gets stuck almost immediately,
   // because no single nudge improves the count even when a combination would.
-  for (let round = 0; round < SWEEP_ROUNDS && bestClashes > 0; round += 1) {
+  for (let round = 0; round < SWEEP_ROUNDS && bestClashes > 0 && auditsLeft > 0; round += 1) {
     const clashes = clashingPairs(applied(classes, labs), auditOptions);
     if (clashes.length === 0) {
       break;
@@ -194,7 +210,7 @@ export function generateAccessiblePalette(
   // Phase two, polish: from the best arrangement found, take the worst clash
   // and rotate one of its two colours, keeping the change only if the whole
   // palette improved.
-  for (let round = 0; round < POLISH_ROUNDS && bestClashes > 0; round += 1) {
+  for (let round = 0; round < POLISH_ROUNDS && bestClashes > 0 && auditsLeft > 0; round += 1) {
     let improved = false;
     for (const clash of clashingPairs(applied(classes, best), auditOptions)) {
       const a = best[clash.a];
@@ -211,7 +227,7 @@ export function generateAccessiblePalette(
         // the same palette coming out markedly better or worse depending on
         // the background it was tuned against. Trying whole nudges all the way
         // round makes the outcome depend on the palette instead of the path.
-        for (let turn = 1; turn <= 360 / HUE_NUDGE_DEGREES; turn += 1) {
+        for (let turn = 1; turn <= 360 / HUE_NUDGE_DEGREES && auditsLeft > 0; turn += 1) {
           const trial = best.map((lab) => ({ ...lab }));
           const subject = trial[candidate];
           if (subject === undefined) {

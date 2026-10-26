@@ -23,8 +23,9 @@
   preview built on inline `feColorMatrix` filters.
 - `carto-a11y audit <style.json>` — the whole pipeline from the command line,
   in summary, JSON or HTML, exiting 1 when a pair is confusable.
-- Hawaiʻi demo — `scripts/fetch-hawaii.ts`, 15 geological units, a USGS-style
-  baseline style, and its audit. See [../demos/hawaii](../demos/hawaii).
+- Hawaiʻi demo — `scripts/process-hawaii.ts` turns USGS SIM 3143 into 97 real
+  map units with their published colours, reprojecting from UTM zone 4N and
+  simplifying to 3.9 MB. See [../demos/hawaii](../demos/hawaii).
 - `apps/web` — MapLibre map, live audit panel, CVD preview over the map, and a
   before/after switch between the baseline and remediated styles.
 - `core/remediate/palette.ts` — `generateAccessiblePalette`: respace a palette
@@ -37,9 +38,12 @@
 
 ## Next
 
-0. **Real USGS polygons.** The demo data is synthesised because no USGS
-   service reachable from a plain HTTP client serves SIM 3143 as vectors.
-   Replace it when one does, or by converting the published shapefiles.
+0. **Beyond colour, now urgent.** The published SIM 3143 sheet gives twelve
+   pairs of units an identical fill and separates four of them with an
+   overprint stipple. A colour-only audit reports those as clashes and cannot
+   see the pattern that resolves them. Extract pattern fills, outline weight
+   and labelling, and count a pair as separated when a non-colour channel
+   does the work.
 
 1. **More style syntax** — `case`, `step` and `interpolate` expressions, which
    extraction currently skips because they have no single static value;
@@ -61,8 +65,6 @@
 8. **Beyond colour** — four pairs on the Hawaiʻi demo cannot be separated by
    colour at eighteen classes, whatever the palette. Audit and suggest the
    other channels: hatching and pattern fills, outline weight, labels.
-9. **Slimmer JSON reports** — `audit-baseline.json` is 450 kB because every
-   pair embeds both class objects in full; reference them by id instead.
 9b. **Display names in reports** — the web app reads real unit names out of
    the GeoJSON, so it says “Kīlauea historical flows”; the CLI only has the
    style, so its report says “Qkh”. Carry a display name on `MapClass`, read

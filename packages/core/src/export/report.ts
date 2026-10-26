@@ -57,18 +57,69 @@ function resolveOptions(options: AuditOptions): ResolvedOptions {
   };
 }
 
+/** One clash in a JSON report: the two classes named by id, and the numbers. */
+export interface JsonReportClash {
+  classA: string;
+  classB: string;
+  mode: VisionMode;
+  dE: number;
+  contrast: number;
+}
+
+/** The shape {@link generateJsonReport} writes. */
+export interface JsonReport {
+  timestamp: string;
+  styleSource: string;
+  options: { background: RGB; threshold: number; modes: readonly VisionMode[] };
+  summary: AuditResult['summary'];
+  /** Every class, in style order. Clashes refer to these by `id`. */
+  classes: MapClass[];
+  /** Only the pairs that failed, closest first. */
+  clashes: JsonReportClash[];
+}
+
 /**
  * Serialise a report as JSON.
  *
- * The output is {@link ReportData} verbatim, so it round-trips through
- * `JSON.parse` into the same shape. Colours stay as sRGB triples in 0..1;
- * `rgbToHex` turns them into `#rrggbb` when a consumer wants that.
+ * The classes are listed once and the clashes name them by id, rather than
+ * each pair carrying two copies of a class object. On a small style that is
+ * tidier; on a geological map with a hundred classes it is the difference
+ * between a 225 kB file and a 12 MB one.
+ *
+ * Only failures are listed. Every pair judged is still accounted for in
+ * `summary.total`, but a hundred classes make 19,800 judgements and the ones
+ * that passed carry no information a reader or a diff can use.
+ *
+ * Colours stay as sRGB triples in 0..1; `rgbToHex` turns them into `#rrggbb`
+ * when a consumer wants that.
  *
  * @param data - The report to serialise.
  * @returns JSON text, indented by two spaces.
  */
 export function generateJsonReport(data: ReportData): string {
-  return JSON.stringify(data, null, 2);
+  const resolved = resolveOptions(data.options);
+  const report: JsonReport = {
+    timestamp: data.timestamp,
+    styleSource: data.styleSource,
+    options: {
+      background: resolved.background,
+      threshold: resolved.threshold,
+      modes: resolved.modes,
+    },
+    summary: data.audit.summary,
+    classes: data.classes,
+    clashes: data.audit.failing
+      .slice()
+      .sort((a, b) => a.dE - b.dE)
+      .map((pair) => ({
+        classA: pair.classA.id,
+        classB: pair.classB.id,
+        mode: pair.mode,
+        dE: pair.dE,
+        contrast: pair.contrast,
+      })),
+  };
+  return JSON.stringify(report, null, 2);
 }
 
 /* ------------------------------------------------------------------ *

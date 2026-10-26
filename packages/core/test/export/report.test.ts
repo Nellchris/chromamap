@@ -5,6 +5,7 @@ import { parseColor } from '../../src/color/parse.js';
 import {
   generateHtmlReport,
   generateJsonReport,
+  type JsonReport,
   type ReportData,
 } from '../../src/export/report.js';
 import type { MapClass } from '../../src/style/extract.js';
@@ -34,10 +35,52 @@ const CLEAN = [fill('ink', 'black'), fill('paper', 'white')];
 const TROUBLE = Array.from({ length: 6 }, (_, index) => fill(`c${String(index)}`, '#336699'));
 
 describe('generateJsonReport', () => {
-  it('parses back into the same structure', () => {
+  it('parses back into the documented structure', () => {
+    const parsed = JSON.parse(generateJsonReport(report(CONFUSABLE))) as JsonReport;
+    expect(Object.keys(parsed).sort()).toEqual([
+      'clashes',
+      'classes',
+      'options',
+      'styleSource',
+      'summary',
+      'timestamp',
+    ]);
+    expect(Array.isArray(parsed.classes)).toBe(true);
+    expect(Array.isArray(parsed.clashes)).toBe(true);
+  });
+
+  it('names classes once and refers to them by id', () => {
+    const parsed = JSON.parse(generateJsonReport(report(CONFUSABLE))) as JsonReport;
+    const ids = new Set(parsed.classes.map((cls) => cls.id));
+    expect(ids).toEqual(new Set(['roads', 'parks']));
+    for (const clash of parsed.clashes) {
+      expect(typeof clash.classA).toBe('string');
+      expect(ids.has(clash.classA)).toBe(true);
+      expect(ids.has(clash.classB)).toBe(true);
+    }
+  });
+
+  it('lists the failures, not every judgement', () => {
+    // A hundred-class map makes 19,800 judgements; writing the passing ones
+    // out makes a file nobody can read and git cannot diff.
     const data = report(CONFUSABLE);
-    const parsed: unknown = JSON.parse(generateJsonReport(data));
-    expect(parsed).toEqual(JSON.parse(JSON.stringify(data)));
+    const parsed = JSON.parse(generateJsonReport(data)) as JsonReport;
+    expect(parsed.summary.total).toBe(4);
+    expect(parsed.clashes).toHaveLength(data.audit.failing.length);
+    expect(parsed.clashes).toHaveLength(1);
+  });
+
+  it('sorts the clashes closest first', () => {
+    const parsed = JSON.parse(generateJsonReport(report(TROUBLE))) as JsonReport;
+    const distances = parsed.clashes.map((clash) => clash.dE);
+    expect(distances).toEqual([...distances].sort((a, b) => a - b));
+  });
+
+  it('records the options with their defaults filled in', () => {
+    const parsed = JSON.parse(generateJsonReport(report(CONFUSABLE))) as JsonReport;
+    expect(parsed.options.threshold).toBe(10);
+    expect(parsed.options.background).toEqual([1, 1, 1]);
+    expect(parsed.options.modes).toEqual(['normal', 'protan', 'deutan', 'tritan']);
   });
 
   it('indents with two spaces', () => {
@@ -49,27 +92,27 @@ describe('generateJsonReport', () => {
 
   it('carries the inputs, the verdict and the options', () => {
     const data = report(CONFUSABLE, { threshold: 10, modes: ['normal', 'protan'] });
-    const parsed = JSON.parse(generateJsonReport(data)) as ReportData;
+    const parsed = JSON.parse(generateJsonReport(data)) as JsonReport;
     expect(parsed.timestamp).toBe('2026-10-24T12:00:00.000Z');
     expect(parsed.styleSource).toBe('demo/style.json');
     expect(parsed.classes.map((cls) => cls.id)).toEqual(['roads', 'parks']);
-    expect(parsed.audit.summary.total).toBe(2);
-    expect(parsed.audit.failing).toHaveLength(1);
-    expect(parsed.audit.failing[0]?.mode).toBe('protan');
+    expect(parsed.summary.total).toBe(2);
+    expect(parsed.clashes).toHaveLength(1);
+    expect(parsed.clashes[0]?.mode).toBe('protan');
     expect(parsed.options.threshold).toBe(10);
     expect(parsed.options.modes).toEqual(['normal', 'protan']);
   });
 
   it('keeps colours as sRGB triples', () => {
-    const parsed = JSON.parse(generateJsonReport(report(CONFUSABLE))) as ReportData;
+    const parsed = JSON.parse(generateJsonReport(report(CONFUSABLE))) as JsonReport;
     expect(parsed.classes[0]?.color).toEqual([1, 0, 0]);
   });
 
   it('produces a clean report when nothing fails', () => {
-    const parsed = JSON.parse(generateJsonReport(report(CLEAN))) as ReportData;
-    expect(parsed.audit.failing).toEqual([]);
-    expect(parsed.audit.summary.failing).toBe(0);
-    expect(parsed.audit.summary.byMode).toEqual({
+    const parsed = JSON.parse(generateJsonReport(report(CLEAN))) as JsonReport;
+    expect(parsed.clashes).toEqual([]);
+    expect(parsed.summary.failing).toBe(0);
+    expect(parsed.summary.byMode).toEqual({
       normal: 0,
       protan: 0,
       deutan: 0,
@@ -78,9 +121,10 @@ describe('generateJsonReport', () => {
   });
 
   it('handles an empty class list', () => {
-    const parsed = JSON.parse(generateJsonReport(report([]))) as ReportData;
+    const parsed = JSON.parse(generateJsonReport(report([]))) as JsonReport;
     expect(parsed.classes).toEqual([]);
-    expect(parsed.audit.pairs).toEqual([]);
+    expect(parsed.clashes).toEqual([]);
+    expect(parsed.summary.total).toBe(0);
   });
 });
 

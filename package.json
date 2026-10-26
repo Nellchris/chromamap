@@ -14,7 +14,7 @@
     "test": "pnpm -r run test",
     "lint": "tsc -p scripts/tsconfig.json && pnpm -r run lint",
     "dev": "pnpm --filter @carto-a11y/web run dev",
-    "demo:data": "node scripts/fetch-hawaii.ts",
+    "demo:data": "node --max-old-space-size=4096 scripts/process-hawaii.ts",
     "demo:remediate": "node scripts/remediate-hawaii.ts",
     "clean": "pnpm -r exec node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
   },

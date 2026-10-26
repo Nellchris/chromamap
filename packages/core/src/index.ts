@@ -41,7 +41,7 @@ export {
   runAudit,
 } from './audit/index.js';
 
-export type { ReportData } from './export/report.js';
+export type { JsonReport, JsonReportClash, ReportData } from './export/report.js';
 export { generateHtmlReport, generateJsonReport } from './export/report.js';
 
 export type { RemediationResult } from './remediate/palette.js';

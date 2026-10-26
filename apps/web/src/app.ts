@@ -51,6 +51,7 @@ setWorkerUrl(maplibreWorkerUrl);
 
 const BASE = import.meta.env.BASE_URL;
 const UNITS_URL = `${BASE}data/units.geojson`;
+const METADATA_URL = `${BASE}data/unit-metadata.json`;
 
 /** The two styles the demo compares. */
 const VARIANTS = {
@@ -65,6 +66,14 @@ const HIGHLIGHT_LAYER = 'carto-a11y-highlight';
 
 /** How many clashes the panel shows before asking to be expanded. */
 const CLASHES_SHOWN = 5;
+
+/**
+ * Caps for a geological map, which has a hundred classes and a thousand
+ * clashes. Building every row on every re-render would stall the panel, and
+ * nobody reads the thousandth card anyway.
+ */
+const CLASHES_MAX = 100;
+const TECHNICAL_ROWS_MAX = 200;
 
 interface Bbox {
   west: number;
@@ -157,7 +166,7 @@ function unitBounds(geojson: unknown): Map<string, Bbox> {
   }
 
   for (const feature of features) {
-    const unit = (feature as { properties?: { unit?: unknown } }).properties?.unit;
+    const unit = (feature as { properties?: { MapUnit?: unknown } }).properties?.MapUnit;
     const coordinates = (feature as { geometry?: { coordinates?: unknown } }).geometry
       ?.coordinates;
     if (typeof unit !== 'string' || !Array.isArray(coordinates)) {
@@ -185,25 +194,22 @@ function unitBounds(geojson: unknown): Map<string, Bbox> {
 }
 
 /**
- * Real names for the geological units, read out of the data.
+ * Readable names for the geological units.
  *
- * A style only knows a unit as `Qku`; the GeoJSON knows it is the Kaʻū Basalt.
- * `extractClasses` fills in a `displayName` by itself when a style carries its
- * GeoJSON inline, but this demo's source is a URL, so the app does the same
- * job with the data it fetched.
+ * `unit-metadata.json` carries the USGS `FullName` for each map unit, so the
+ * panel can say "Lava flows of Mauna Loa" where the style only knows `Qmlh`.
+ * `extractClasses` fills `displayName` in by itself when a style holds its
+ * GeoJSON inline; this demo loads its data by URL, so the app does that job.
  */
-function unitNames(geojson: unknown): Map<string, string> {
+function unitNames(metadata: unknown): Map<string, string> {
   const names = new Map<string, string>();
-  const features = (geojson as { features?: unknown }).features;
-  if (!Array.isArray(features)) {
+  if (typeof metadata !== 'object' || metadata === null) {
     return names;
   }
-  for (const feature of features) {
-    const properties = (feature as { properties?: Record<string, unknown> }).properties;
-    const unit = properties?.['unit'];
-    const name = properties?.['name'];
-    if (typeof unit === 'string' && typeof name === 'string' && name !== '') {
-      names.set(unit, name);
+  for (const [unit, entry] of Object.entries(metadata as Record<string, unknown>)) {
+    const fullName = (entry as { fullName?: unknown })?.fullName;
+    if (typeof fullName === 'string' && fullName !== '') {
+      names.set(unit, fullName);
     }
   }
   return names;
@@ -365,8 +371,13 @@ export async function startApp(root: HTMLElement): Promise<void> {
 
   let units: unknown;
   let baseline: unknown;
+  let metadata: unknown;
   try {
-    [units, baseline] = await Promise.all([loadJson(UNITS_URL), loadJson(VARIANTS.original.url)]);
+    [units, baseline, metadata] = await Promise.all([
+      loadJson(UNITS_URL),
+      loadJson(VARIANTS.original.url),
+      loadJson(METADATA_URL),
+    ]);
   } catch (error) {
     mounts.body.replaceChildren(
       el(
@@ -380,7 +391,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
     return;
   }
 
-  const names = unitNames(units);
+  const names = unitNames(metadata);
   const variants: Variant[] = [
     buildVariant('original', VARIANTS.original.label, baseline, names),
   ];
@@ -495,7 +506,7 @@ function addHighlightLayer(map: MapLibreMap): void {
     id: HIGHLIGHT_LAYER,
     type: 'line',
     source: 'units',
-    filter: ['in', ['get', 'unit'], ['literal', []]],
+    filter: ['in', ['get', 'MapUnit'], ['literal', []]],
     paint: {
       'line-color': '#ffffff',
       'line-width': 2.5,
@@ -521,7 +532,7 @@ function focusPair(
 
   if (map.getLayer(HIGHLIGHT_LAYER) !== undefined) {
     const wanted = [unitA, unitB].filter((unit): unit is string => unit !== undefined);
-    map.setFilter(HIGHLIGHT_LAYER, ['in', ['get', 'unit'], ['literal', wanted]]);
+    map.setFilter(HIGHLIGHT_LAYER, ['in', ['get', 'MapUnit'], ['literal', wanted]]);
   }
 
   if (boxes.length === 0) {
@@ -706,7 +717,7 @@ function clashPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
 
   section.append(el('p', 'note', 'Pairs a reader cannot tell apart, closest first.'));
 
-  const shown = state.showAllClashes ? clashes : clashes.slice(0, CLASHES_SHOWN);
+  const shown = clashes.slice(0, state.showAllClashes ? CLASHES_MAX : CLASHES_SHOWN);
   const list = el('ul', 'list');
   for (const pair of shown) {
     const item = el('li');
@@ -742,7 +753,11 @@ function clashPanel(state: DemoState, handlers: PanelHandlers): HTMLElement {
     const more = el(
       'button',
       'link-button',
-      state.showAllClashes ? 'Show fewer' : `Show all ${String(clashes.length)} clashes`,
+      state.showAllClashes
+        ? 'Show fewer'
+        : clashes.length > CLASHES_MAX
+          ? `Show the worst ${String(CLASHES_MAX)} of ${String(clashes.length)} clashes`
+          : `Show all ${String(clashes.length)} clashes`,
     );
     more.type = 'button';
     more.setAttribute('aria-expanded', String(state.showAllClashes));
@@ -868,7 +883,8 @@ function technicalPanel(state: DemoState): HTMLElement {
     headRow.append(el('th', undefined, 'Pair'), el('th', 'num', 'ΔE00'), el('th', 'num', 'Contrast'));
     head.append(headRow);
     const body = el('tbody');
-    for (const pair of [...audit.failing].sort((a, b) => a.dE - b.dE)) {
+    const sorted = [...audit.failing].sort((a, b) => a.dE - b.dE);
+    for (const pair of sorted.slice(0, TECHNICAL_ROWS_MAX)) {
       const row = el('tr');
       const cell = el('td');
       cell.append(
@@ -891,7 +907,9 @@ function technicalPanel(state: DemoState): HTMLElement {
       el(
         'p',
         'technical-heading',
-        `Every clash (${String(audit.failing.length)} of ${String(audit.summary.total)} checks)`,
+        audit.failing.length > TECHNICAL_ROWS_MAX
+          ? `Closest ${String(TECHNICAL_ROWS_MAX)} of ${String(audit.failing.length)} clashes, from ${String(audit.summary.total)} checks`
+          : `Every clash (${String(audit.failing.length)} of ${String(audit.summary.total)} checks)`,
       ),
       table,
     );

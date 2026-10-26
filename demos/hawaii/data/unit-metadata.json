@@ -1,0 +1,681 @@
+{
+  "Qa": {
+    "name": "Alluvium",
+    "fullName": "Alluvium",
+    "age": "Holocene and Pleistocene",
+    "color": "#ffffcc",
+    "volcano": "Mauna Kea"
+  },
+  "Qcw": {
+    "name": "Steep walls of calderas and pit craters",
+    "fullName": "Steep walls of calderas and pit craters",
+    "age": "Holocene",
+    "color": "#ffff00",
+    "volcano": "Kīlauea"
+  },
+  "Qdy": {
+    "name": "Younger dune deposits",
+    "fullName": "Younger dune deposits",
+    "age": "Holocene",
+    "color": "#ffeb80",
+    "volcano": "Kīlauea"
+  },
+  "Qf": {
+    "name": "Fill",
+    "fullName": "Fill",
+    "age": "Holocene",
+    "color": "#99b3b3",
+    "volcano": "Kohala"
+  },
+  "Qh": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged >11,000 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#004db3",
+    "volcano": "Hualālai"
+  },
+  "Qh1o": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 5,000–11,000 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#ebebde",
+    "volcano": "Hualālai"
+  },
+  "Qh1y": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 3,000–5,000 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#ffffeb",
+    "volcano": "Hualālai"
+  },
+  "Qh2": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 1,500–3,000 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#ebde99",
+    "volcano": "Hualālai"
+  },
+  "Qh3": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 750–1,500 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#cccc80",
+    "volcano": "Hualālai"
+  },
+  "Qh4": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 200–750 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#ebdecc",
+    "volcano": "Hualālai"
+  },
+  "Qh5": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 0–200 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#deb399",
+    "volcano": "Hualālai"
+  },
+  "Qha4": {
+    "name": "Tephra deposits",
+    "fullName": "Tephra deposits aged 200–750 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#b3b3ff",
+    "volcano": "Hualālai"
+  },
+  "Qhc": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged >11,000 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#4d4dff",
+    "volcano": "Hualālai"
+  },
+  "Qhc1o": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 5,000–11,000 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#66664d",
+    "volcano": "Hualālai"
+  },
+  "Qhc1y": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 3,000–5,000 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#cccc00",
+    "volcano": "Hualālai"
+  },
+  "Qhc2": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 1,500–3,000 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#b38000",
+    "volcano": "Hualālai"
+  },
+  "Qhc3": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 750–1,500 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#808000",
+    "volcano": "Hualālai"
+  },
+  "Qhc4": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 200–750 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#80664d",
+    "volcano": "Hualālai"
+  },
+  "Qhc5": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 0–200 years before present of the Hualālai Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#b34d4d",
+    "volcano": "Hualālai"
+  },
+  "Qhi": {
+    "name": "Hilina Basalt",
+    "fullName": "Hilina Basalt",
+    "age": "Pleistocene",
+    "color": "#9966ff",
+    "volcano": "Kīlauea"
+  },
+  "Qhm": {
+    "name": "Lava flows",
+    "fullName": "Basalt Lava flows of the Hāmākua Volcanics",
+    "age": "Pleistocene",
+    "color": "#ffebff",
+    "volcano": "Mauna Kea"
+  },
+  "Qhmc": {
+    "name": "Vent deposits",
+    "fullName": "Basalt Vent deposits of the Hāmākua Volcanics",
+    "age": "Pleistocene",
+    "color": "#ff99ff",
+    "volcano": "Mauna Kea"
+  },
+  "Qhmp": {
+    "name": "Pōhakuloa Glacial Member",
+    "fullName": "Pōhakuloa Glacial Member of the Hāmākua Volcanics",
+    "age": "Pleistocene",
+    "color": "#ff6600",
+    "volcano": "Mauna Kea"
+  },
+  "Qhmw": {
+    "name": "Waihū Glacial Member",
+    "fullName": "Waihū Glacial Member of the Hāmākua Volcanics",
+    "age": "Pleistocene",
+    "color": "#ffb366",
+    "volcano": "Mauna Kea"
+  },
+  "Qhw": {
+    "name": "Lava flow",
+    "fullName": "Hawaiite and mugearite Lava flow of the Hāwī Volcanics",
+    "age": "Pleistocene",
+    "color": "#deffde",
+    "volcano": "Kohala"
+  },
+  "Qhwa": {
+    "name": "Tephra deposits",
+    "fullName": "Hawaiite and mugearite Tephra deposits of the Hāwī Volcanics",
+    "age": "Pleistocene",
+    "color": "#b3ffff",
+    "volcano": "Kohala"
+  },
+  "Qhwb": {
+    "name": "Lava flows",
+    "fullName": "Benmoreite Lava flows of the Hāwī Volcanics",
+    "age": "Pleistocene",
+    "color": "#deebeb",
+    "volcano": "Kohala"
+  },
+  "Qhwbc": {
+    "name": "Vent deposits",
+    "fullName": "Benmoreite Vent deposits of the Hāwī Volcanics",
+    "age": "Pleistocene",
+    "color": "#66ebcc",
+    "volcano": "Kohala"
+  },
+  "Qhwbd": {
+    "name": "Lava domes",
+    "fullName": "Benmoreite Lava domes of the Hāwī Volcanics",
+    "age": "Pleistocene",
+    "color": "#80ffb3",
+    "volcano": "Kohala"
+  },
+  "Qhwc": {
+    "name": "Vent deposits",
+    "fullName": "Hawaiite and mugearite Vent deposits of the Hāwī Volcanics",
+    "age": "Pleistocene",
+    "color": "#99ffde",
+    "volcano": "Kohala"
+  },
+  "Qhwd": {
+    "name": "Lava domes",
+    "fullName": "Hawaiite and mugearite Lava domes of the Hāwī Volcanics",
+    "age": "Pleistocene",
+    "color": "#4dffb3",
+    "volcano": "Kohala"
+  },
+  "Qhwt": {
+    "name": "Lava flows",
+    "fullName": "Trachyte Lava flows of the Hāwī Volcanics",
+    "age": "Pleistocene",
+    "color": "#b3ebeb",
+    "volcano": "Kohala"
+  },
+  "Qhwtd": {
+    "name": "Lava domes",
+    "fullName": "Trachyte Lava domes of the Hāwī Volcanics",
+    "age": "Pleistocene",
+    "color": "#00cccc",
+    "volcano": "Kohala"
+  },
+  "Qk": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged >11,000 years before present  of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#ccff66",
+    "volcano": "Mauna Loa"
+  },
+  "Qk1": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 3,000–11,000 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#b3ff4d",
+    "volcano": "Mauna Loa"
+  },
+  "Qk1o": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 5,000–11,000 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#cceb99",
+    "volcano": "Mauna Loa"
+  },
+  "Qk1y": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 3,000–5,000 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#deff99",
+    "volcano": "Mauna Loa"
+  },
+  "Qk2": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 1,500–3,000 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#deffcc",
+    "volcano": "Mauna Loa"
+  },
+  "Qk3": {
+    "name": "Qk3",
+    "fullName": "Qk3",
+    "age": "unknown",
+    "color": "#cccccc",
+    "volcano": "Mauna Loa"
+  },
+  "Qk4": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 200–750 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#b3ff99",
+    "volcano": "Mauna Loa"
+  },
+  "Qk5": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 0–200 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#99ffb3",
+    "volcano": "Mauna Loa"
+  },
+  "Qka3": {
+    "name": "Qka3",
+    "fullName": "Qka3",
+    "age": "unknown",
+    "color": "#cccccc",
+    "volcano": "Mauna Loa"
+  },
+  "Qkc": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged >11,000 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#80cc4d",
+    "volcano": "Mauna Loa"
+  },
+  "Qkc1": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 3,000–11,000 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#99eb4d",
+    "volcano": "Mauna Loa"
+  },
+  "Qkc1o": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 5,000–11,000 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#80eb66",
+    "volcano": "Mauna Loa"
+  },
+  "Qkc1y": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 3,000–5,000 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#b3eb4d",
+    "volcano": "Mauna Loa"
+  },
+  "Qkc2": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 1,500–3,000 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#b3de00",
+    "volcano": "Mauna Loa"
+  },
+  "Qkc3": {
+    "name": "Qkc3",
+    "fullName": "Qkc3",
+    "age": "unknown",
+    "color": "#cccccc",
+    "volcano": "Mauna Loa"
+  },
+  "Qkc4": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 200–750 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#4dcc00",
+    "volcano": "Mauna Loa"
+  },
+  "Qkc5": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 0–200 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#00cc00",
+    "volcano": "Mauna Loa"
+  },
+  "Qkh": {
+    "name": "Kahuku Basalt",
+    "fullName": "Kahuku Basalt",
+    "age": "Pleistocene",
+    "color": "#4dff00",
+    "volcano": "Mauna Loa"
+  },
+  "Qkld1": {
+    "name": "Littoral deposits",
+    "fullName": "Littoral deposits aged 3,000–11,000 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#99eb4d",
+    "volcano": "Mauna Loa"
+  },
+  "Qkld2": {
+    "name": "Littoral deposits",
+    "fullName": "Littoral deposits aged 1,500–3,000 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#b3de00",
+    "volcano": "Mauna Loa"
+  },
+  "Qkld3": {
+    "name": "Qkld3",
+    "fullName": "Qkld3",
+    "age": "unknown",
+    "color": "#cccccc",
+    "volcano": "Mauna Loa"
+  },
+  "Qkld4": {
+    "name": "Littoral deposits",
+    "fullName": "Littoral deposits aged 200–750 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#4dcc00",
+    "volcano": "Mauna Loa"
+  },
+  "Qkld5": {
+    "name": "Littoral deposits",
+    "fullName": "Littoral deposits aged 0–200 years before present of the Ka‘ū Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#00cc00",
+    "volcano": "Mauna Loa"
+  },
+  "Ql": {
+    "name": "Lava flows",
+    "fullName": "Lava flows of the Older volcanic rocks member of the Laupāhoehoe Volcanics",
+    "age": "Pleistocene",
+    "color": "#ebebff",
+    "volcano": "Mauna Kea"
+  },
+  "Qla": {
+    "name": "Tephra-fall deposits",
+    "fullName": "Tephra-fall deposits of the Older volcanic rocks member of the Laupāhoehoe Volcanics",
+    "age": "Holocene and Pleistocene",
+    "color": "#99ffff",
+    "volcano": "Mauna Kea"
+  },
+  "Qlay": {
+    "name": "Tephra-fall deposits",
+    "fullName": "Tephra-fall deposits of the Younger volcanic rocks member of the Laupāhoehoe Volcanics",
+    "age": "Holocene and Pleistocene?",
+    "color": "#ccffff",
+    "volcano": "Mauna Kea"
+  },
+  "Qlb": {
+    "name": "Benmoreite lava flows",
+    "fullName": "Benmoreite lava flows of the Older volcanic rocks member of the Laupāhoehoe Volcanics",
+    "age": "Pleistocene",
+    "color": "#ebccff",
+    "volcano": "Mauna Kea"
+  },
+  "Qlbc": {
+    "name": "Two cones with benmoreite composition",
+    "fullName": "Two cones with benmoreite composition of the Older volcanic rocks member of the Laupāhoehoe Volcanics",
+    "age": "Pleistocene",
+    "color": "#b3deff",
+    "volcano": "Mauna Kea"
+  },
+  "Qlc": {
+    "name": "Scoria cones",
+    "fullName": "Scoria cones of the Older volcanic rocks member of the Laupāhoehoe Volcanics",
+    "age": "Pleistocene",
+    "color": "#b3deff",
+    "volcano": "Mauna Kea"
+  },
+  "Qlcy": {
+    "name": "Scoria cones",
+    "fullName": "Scoria cones of the Younger volcanic rocks member of the Laupāhoehoe Volcanics",
+    "age": "Holocene and Pleistocene?",
+    "color": "#eb4dff",
+    "volcano": "Mauna Kea"
+  },
+  "Qlmo": {
+    "name": "Outwash",
+    "fullName": "Outwash of the Mākanaka Glacial Member of the Laupāhoehoe Volcanics",
+    "age": "Pleistocene",
+    "color": "#ffcc00",
+    "volcano": "Mauna Kea"
+  },
+  "Qlmt": {
+    "name": "Till",
+    "fullName": "Till of the Mākanaka Glacial Member of the Laupāhoehoe Volcanics",
+    "age": "Pleistocene",
+    "color": "#ffebb3",
+    "volcano": "Mauna Kea"
+  },
+  "Qls": {
+    "name": "Landslide deposits",
+    "fullName": "Landslide deposits",
+    "age": "Holocene",
+    "color": "#ffffff",
+    "volcano": "Kohala"
+  },
+  "Qly": {
+    "name": "Lava flows",
+    "fullName": "Lava flows of the Younger volcanic rocks member of the Laupāhoehoe Volcanics",
+    "age": "Holocene and Pleistocene?",
+    "color": "#ffccff",
+    "volcano": "Mauna Kea"
+  },
+  "Qn": {
+    "name": "Nīnole Basalt",
+    "fullName": "Nīnole Basalt",
+    "age": "Pleistocene",
+    "color": "#4db3cc",
+    "volcano": "Mauna Loa"
+  },
+  "Qp1o": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 5,000–16,000 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#de4d80",
+    "volcano": "Kīlauea"
+  },
+  "Qp1y": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 3,000–5,000 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#de4d80",
+    "volcano": "Kīlauea"
+  },
+  "Qp2": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 1,500–3,000 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#cccceb",
+    "volcano": "Kīlauea"
+  },
+  "Qp3": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 750–1,500 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#de99de",
+    "volcano": "Kīlauea"
+  },
+  "Qp4": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 200–750 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#ffb3eb",
+    "volcano": "Kīlauea"
+  },
+  "Qp4o": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 400–750 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#ebdeeb",
+    "volcano": "Kīlauea"
+  },
+  "Qp4y": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 200–400 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#deccde",
+    "volcano": "Kīlauea"
+  },
+  "Qp5": {
+    "name": "Lava flows",
+    "fullName": "Lava flows aged 0–200 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#ff99b3",
+    "volcano": "Kīlauea"
+  },
+  "Qpa2": {
+    "name": "Tephra deposits",
+    "fullName": "Tephra deposits aged 1,500–3,000 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#66ffeb",
+    "volcano": "Mauna Loa"
+  },
+  "Qpa4o": {
+    "name": "Tephra deposits",
+    "fullName": "Tephra deposits aged 400–750 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#ccebeb",
+    "volcano": "Kīlauea"
+  },
+  "Qpa4y": {
+    "name": "Tephra deposits",
+    "fullName": "Tephra deposits aged 200–400 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#ccebeb",
+    "volcano": "Kīlauea"
+  },
+  "Qpa5": {
+    "name": "Tephra deposits",
+    "fullName": "Tephra deposits aged 0–200 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#66ffff",
+    "volcano": "Kīlauea"
+  },
+  "Qpc2": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 1,500–3,000 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#6666de",
+    "volcano": "Kīlauea"
+  },
+  "Qpc3": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 750–1,500 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#cc4dde",
+    "volcano": "Kīlauea"
+  },
+  "Qpc4o": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 400–750 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#b34d99",
+    "volcano": "Kīlauea"
+  },
+  "Qpc4y": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 200–400 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#ff4db3",
+    "volcano": "Kīlauea"
+  },
+  "Qpc5": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits aged 0–200 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#ff0000",
+    "volcano": "Kīlauea"
+  },
+  "Qpl": {
+    "name": "Lava flow",
+    "fullName": "Lava flow of the Pololū Volcanics",
+    "age": "Pleistocene",
+    "color": "#ebffeb",
+    "volcano": "Kohala"
+  },
+  "Qplc": {
+    "name": "Vent deposits",
+    "fullName": "Vent deposits of the Pololū Volcanics",
+    "age": "Pleistocene",
+    "color": "#99ebb3",
+    "volcano": "Kohala"
+  },
+  "Qpld": {
+    "name": "Lava domes",
+    "fullName": "Lava domes of the Pololū Volcanics",
+    "age": "Pleistocene",
+    "color": "#ebffeb",
+    "volcano": "Kohala"
+  },
+  "Qpld3": {
+    "name": "Littoral deposits",
+    "fullName": "Littoral deposits aged 750–1,500 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#cc4dde",
+    "volcano": "Kīlauea"
+  },
+  "Qpld4o": {
+    "name": "Littoral deposits",
+    "fullName": "Littoral deposits aged 400–750 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#b34d99",
+    "volcano": "Kīlauea"
+  },
+  "Qpld5": {
+    "name": "Littoral deposits",
+    "fullName": "Littoral deposits aged 0–200 years before present of the Puna Basalt",
+    "age": "Holocene and Pleistocene",
+    "color": "#ff0000",
+    "volcano": "Kīlauea"
+  },
+  "Qplm": {
+    "name": "Lava flows",
+    "fullName": "Mugearite Lava flows of the Pololū Volcanics",
+    "age": "Pleistocene",
+    "color": "#80eb80",
+    "volcano": "Kohala"
+  },
+  "Qplmc": {
+    "name": "Vent deposits",
+    "fullName": "Mugearite Vent deposit of the Pololū Volcanics",
+    "age": "Pleistocene",
+    "color": "#00de80",
+    "volcano": "Kohala"
+  },
+  "Qt": {
+    "name": "Tephra",
+    "fullName": "Tephra",
+    "age": "Pleistocene",
+    "color": "#80ebeb",
+    "volcano": "Mauna Loa"
+  },
+  "Qw": {
+    "name": "Lava flow",
+    "fullName": "Lava flow of the Wa‘awa‘a Trachyte Member of the Hualālai Volcanics",
+    "age": "Pleistocene",
+    "color": "#b38099",
+    "volcano": "Hualālai"
+  },
+  "Qwc": {
+    "name": "Scoria cone",
+    "fullName": "Scoria cone of the Wa‘awa‘a Trachyte Member of the Hualālai Volcanics",
+    "age": "Pleistocene",
+    "color": "#b38099",
+    "volcano": "Hualālai"
+  },
+  "ow": {
+    "name": "ow",
+    "fullName": "ow",
+    "age": "unknown",
+    "color": "#cccccc",
+    "volcano": "Mauna Loa"
+  }
+}

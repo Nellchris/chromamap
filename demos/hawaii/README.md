@@ -1,98 +1,110 @@
 # Hawaiʻi demo
 
-A geological map of Hawaiʻi Island in traditional USGS colours, and what an
-accessibility audit has to say about it.
+The official USGS geological map of Hawaiʻi Island, and what an accessibility
+audit has to say about it.
 
 | File | What it is |
 | ---- | ---------- |
-| `data/units.geojson` | 29 polygons in 15 geological units, tiling the island |
-| `styles/baseline.json` | A MapLibre style colouring those units the way a USGS sheet would |
+| `data/units.geojson` | 5,681 polygons in 97 map units, Big Island only |
+| `data/unit-metadata.json` | Per-unit name, age, volcano and official USGS fill colour |
+| `styles/baseline.json` | A MapLibre style using the published USGS colours |
 | `styles/remediated.json` | The same style with an accessible palette |
 | `audit-baseline.json` | The audit of the baseline |
 | `audit-remediated.json` | The audit of the remediated version |
 
-## The finding
+## Where the data comes from
 
-The baseline style is readable to normal colour vision and falls apart for
-everyone else. Of its 153 class pairs, **48 are confusable** under at least one
-vision mode:
+USGS **Scientific Investigations Map 3143**, *Geologic Map of the State of
+Hawaiʻi* (Sherrod, Sinton, Watkins and Brunt, 2021), as published in GeoJSON.
+This is the real survey, not a stand-in.
+
+`scripts/process-hawaii.ts` turns the archive into what the demo needs:
+
+- **Reprojects** from EPSG:26904 (NAD83 / UTM zone 4N, in metres) to longitude
+  and latitude. The archive is *not* in lon/lat; the inverse transverse
+  Mercator is implemented in the script rather than pulled in as a dependency.
+  Checked against the island's real extent: the output bounding box lands
+  within 0.001° and the mapped area comes out at 10,411 km² against the
+  island's 10,430 km².
+- **Filters** 9,997 statewide features down to the 5,851 on Hawaiʻi Island.
+- **Simplifies** with Ramer-Douglas-Peucker at a tolerance of 0.0005° (~55 m),
+  keeping 15% of the 837,617 vertices. That is the finest thinning that stays
+  under the 5 MB budget; it drops 170 of the smallest flows, which collapse to
+  nothing at that tolerance, and leaves all 97 units represented. The result is
+  3.9 MB and is for display, not for survey work.
+- **Merges** each unit's `FullName`, `Age` and official `AreaFillRGB` from
+  `DescriptionOfMapUnits.json`, so the baseline style really is the USGS
+  palette rather than an approximation of it.
+
+```bash
+pnpm demo:data -- /path/to/HawaiiStateGeologicMap_GeoJSON
+```
+
+Five units carry no `AreaFillRGB` in the source — `Qk3`, `Qka3`, `Qkc3`,
+`Qkld3` and `ow` — and are drawn in a neutral `#cccccc`. That is this project's
+fallback rather than anything the USGS published, and it has a consequence
+worth naming: those five share a colour with each other, which accounts for
+**15 of the 1,101 clashes below**. The other 1,086 are real.
+
+## The finding
 
 | Vision mode | Baseline | Remediated |
 | ----------- | -------: | ---------: |
-| Normal | 8 | 1 |
-| Protanopia | 29 | 3 |
-| Deuteranopia | 40 | 3 |
-| Tritanopia | 20 | 2 |
-| **Confusable pairs** | **48** | **4** |
+| Normal | 213 | 129 |
+| Protanopia | 641 | 424 |
+| Deuteranopia | 686 | 431 |
+| Tritanopia | 509 | 305 |
+| **Confusable pairs** | **1,101** | **683** |
 
-(Both audited over the style's own ocean background, `#a8cbe0`, which is what
-`carto-a11y audit --background '#a8cbe0'` does and what the web app uses.)
+Of 4,950 pairs of map colours, **1,101 are confusable** under at least one
+vision mode, and 99 of the 100 colours are caught up in at least one.
 
-The worst offenders are the ones a geologist would care most about: the
-historical flows of Kīlauea (`Qkh`, `#e8232a`) and Mauna Loa (`Qmlh`,
-`#d62f2a`) sit 1.1 ΔE apart under protanopia — and only 3.2 ΔE apart under
-*normal* vision, which is a problem the palette has before colour vision
-deficiency enters into it at all.
+The striking number is the 213 in the **normal vision** row. A colour-blindness
+audit was not needed to find those: the published sheet gives different units
+the *same* fill colour. Twelve pairs are byte-for-byte identical —
 
-Open the web app and switch to Protanopia to see it: the reds, oranges and
-browns that separate 10 ka lavas from historical flows collapse into a single
-band of olive.
+| Pair | Fill | Separated by |
+| ---- | ---- | ------------ |
+| `Qkc1`/`Qkld1`, `Qkc2`/`Qkld2`, `Qkc4`/`Qkld4`, `Qkc5`/`Qkld5` | identical | label only |
+| `Qpc3`/`Qpld3`, `Qpc4o`/`Qpld4o`, `Qpc5`/`Qpld5`, `Qp1o`/`Qp1y` | identical | label only |
+| `Qpa4o`/`Qpa4y`, `Qw`/`Qwc`, `Qlbc`/`Qlc`, `Qpl`/`Qpld` | identical | an overprint stipple |
 
-## Where the data comes from
-
-`units.geojson` is **representative, not real**. `scripts/fetch-hawaii.ts`
-tries two USGS sources first and synthesises only when they fail, which as of
-October 2026 they do:
-
-- `ngmdb.usgs.gov/mapview/rest/services` redirects to a 404 page.
-- ScienceBase returns 403 to anything that is not a browser.
-- The one USGS geology service that answers, the State Geologic Map
-  Compilation at `mrdata.usgs.gov`, speaks WMS only — raster tiles, not the
-  polygons an audit needs.
-
-So the polygons are generated: the island outline is traced from the real
-coastline, the five shield volcanoes sit at their real summits, and each one's
-territory is a Voronoi cell clipped to the coast, subdivided by flow age and by
-rift-zone sectors. Unit labels, names and ages follow USGS usage for the island
-— `Qku` for Kaʻū Basalt, `Qhw` for the Hāwī Volcanics, and so on — and the
-total mapped area comes out at about 10,700 km² against the island's real
-10,430 km².
-
-That is enough to exercise an audit honestly, and the file says so in its own
-`metadata`. To swap in the real map, point `fetch-hawaii.ts` at a source that
-serves SIM 3143 as vectors; nothing downstream cares how the polygons were
-made.
+— and that is not a mistake in the map. A geological sheet separates units by
+label, by overprint pattern and by context as well as by fill. Four of those
+twelve pairs do carry a stipple pattern, which this tool cannot see at all,
+because it only reads colour. That is the honest limit of a colour audit, and
+it is the clearest argument for the next thing on the roadmap: auditing the
+channels besides colour.
 
 ## The remediation, and its limit
 
-`styles/remediated.json` is the same style with one thing changed: the
-palette. `generateAccessiblePalette` keeps each unit's hue and moves its
-lightness to an evenly spaced slot between L\* 25 and 85, then nudges hues
-where pairs still clash. Dichromacy takes away hue discrimination but leaves
-lightness nearly intact, so spacing by lightness is the repair that survives
-it. **48 clashes become 4.**
+`generateAccessiblePalette` keeps each unit's hue and respaces the palette
+through lightness, then nudges hues where pairs still clash. It takes 1,101
+clashes down to **683** — a real improvement, and nowhere near a clean sheet.
 
-It does not reach zero, and that is the interesting part. Eighteen classes
-spread over 60 L\* sit 3.5 L\* apart, and CIEDE2000 between two colours of
-similar hue is close to their lightness difference — so most of the separation
-has to come from hue, which is exactly what protanopia and deuteranopia
-remove. Measured against this method, a 60 L\* band carries **up to twelve
-classes** with no clashes at all; at fourteen it starts to fail, and at
-eighteen four pairs remain. A geological map with this many units cannot be
-made safe by colour alone. It needs texture, labels or fewer units — which is
-a finding worth having, not a failure of the tool.
+The arithmetic says why. Ninety-seven units spread across a 60 L\* band sit
+**0.6 L\* apart**, and CIEDE2000 between similar hues is close to the lightness
+difference. Measured against this method, the band carries about twelve classes
+cleanly. Ninety-seven is an order of magnitude past that.
 
-The four that remain are `Qkp`/`Qhv` and `Qhm`/`Qhw`, both separated by under
-5 ΔE.
+So the conclusion the demo actually supports is not "here is the fixed map".
+It is: **a 97-unit geological map cannot be made distinguishable by colour
+alone, for anyone.** It needs pattern, labelling and interaction — which is
+what the real sheet already does, and what this tool should learn to audit.
 
 ## Regenerating
 
 ```bash
-pnpm demo:data        # rewrites data/units.geojson
+pnpm demo:data -- /path/to/HawaiiStateGeologicMap_GeoJSON   # data + baseline style
 pnpm build
-pnpm demo:remediate   # rewrites styles/remediated.json from the baseline
-node packages/cli/bin/carto-a11y.js audit demos/hawaii/styles/baseline.json \
-  --format json --background '#a8cbe0' --output demos/hawaii/audit-baseline.json
-node packages/cli/bin/carto-a11y.js audit demos/hawaii/styles/remediated.json \
-  --format json --background '#a8cbe0' --output demos/hawaii/audit-remediated.json
+pnpm demo:remediate                                          # remediated style
+node --max-old-space-size=4096 packages/cli/bin/carto-a11y.js \
+  audit demos/hawaii/styles/baseline.json --format json \
+  --background '#a8cbe0' --output demos/hawaii/audit-baseline.json
+node --max-old-space-size=4096 packages/cli/bin/carto-a11y.js \
+  audit demos/hawaii/styles/remediated.json --format json \
+  --background '#a8cbe0' --output demos/hawaii/audit-remediated.json
 ```
+
+The source archive is not committed: it is 26 MB zipped and freely available
+from the USGS.
