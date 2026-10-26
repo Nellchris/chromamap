@@ -2,20 +2,69 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#fafaf8" />
     <meta
       name="description"
       content="Audit a MapLibre geological map for colour-vision accessibility, and preview it the way a dichromatic reader sees it."
     />
-    <title>CartoAccessibility Studio — Hawaiʻi</title>
+    <title>CartoAccessibility Studio</title>
+
+    <!-- A plain teal disc: the accent colour, nothing to decode at 16px. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%230e7490'/%3E%3C/svg%3E"
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    />
   </head>
   <body>
     <div id="app" class="app" data-sidebar="open">
-      <aside id="sidebar" class="sidebar" aria-label="Audit controls">
+      <div class="map-wrap">
+        <div
+          id="map"
+          class="map"
+          role="application"
+          aria-label="Geological map of Hawaiʻi Island"
+        ></div>
+        <div class="map-caption" aria-live="polite">
+          <p class="map-caption-title">Hawaiʻi Geological Map</p>
+          <p id="map-caption-mode" class="map-caption-mode" hidden></p>
+        </div>
+      </div>
+
+      <aside id="sidebar" class="sidebar" aria-label="Accessibility audit">
+        <button
+          id="sheet-handle"
+          class="sheet-handle"
+          type="button"
+          aria-controls="sidebar"
+          aria-expanded="true"
+        >
+          <span class="sheet-handle-bar" aria-hidden="true"></span>
+          <span class="visually-hidden">Expand or collapse the audit panel</span>
+        </button>
+
+        <header class="sidebar-top">
+          <div class="brand">
+            <p class="brand-name">CartoAccessibility Studio</p>
+            <p class="brand-tagline">Check if your map colours work for everyone</p>
+          </div>
+          <div id="variant-mount"></div>
+          <div id="score-mount"></div>
+        </header>
+
         <div class="sidebar-scroll" id="sidebar-scroll">
           <p class="loading">Loading the Hawaiʻi demo…</p>
         </div>
       </aside>
+
       <button
         id="sidebar-toggle"
         class="sidebar-toggle"
@@ -24,9 +73,8 @@
         aria-expanded="true"
       >
         <span class="sidebar-toggle-glyph" aria-hidden="true">‹</span>
-        <span class="visually-hidden">Toggle the audit panel</span>
+        <span class="visually-hidden">Collapse the audit panel</span>
       </button>
-      <div id="map" class="map" role="application" aria-label="Geological map of Hawaiʻi Island"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
