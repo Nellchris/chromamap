@@ -85,6 +85,31 @@ export function segmented<T extends string>(options: {
   return group;
 }
 
+/**
+ * A two-state switch that says what pressing it will do.
+ *
+ * Used for the before/after switch, where "Original | Accessible" made a
+ * reader work out which of the two they were looking at. An action label -
+ * "Show accessible version" - cannot be read the wrong way round, and the
+ * caption over the map carries the state.
+ */
+export function toggleButton(options: {
+  label: string;
+  /** True when the alternative, rather than the original, is on show. */
+  pressed: boolean;
+  onToggle: () => void;
+}): HTMLElement {
+  const button = el(
+    'button',
+    `toggle-button${options.pressed ? ' is-pressed' : ''}`,
+    options.label,
+  );
+  button.type = 'button';
+  button.setAttribute('aria-pressed', String(options.pressed));
+  button.addEventListener('click', options.onToggle);
+  return button;
+}
+
 /** Hand the browser a file without a round trip to a server. */
 export function download(filename: string, contents: string, type: string): void {
   const url = URL.createObjectURL(new Blob([contents], { type }));

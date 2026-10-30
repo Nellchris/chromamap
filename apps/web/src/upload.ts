@@ -40,7 +40,7 @@ import {
   type AuditView,
   type ModeView,
 } from './audit-view.js';
-import { download, el, segmented, type Segment } from './dom.js';
+import { download, el, toggleButton } from './dom.js';
 import { VARIANTS } from './demo.js';
 import type { RemediateReply, RemediateRequest } from './remediate.worker.js';
 
@@ -328,7 +328,7 @@ export function createUpload(options: UploadOptions): Upload {
       ? loaded.remediated.view
       : loaded.original;
 
-  const selectVariant = (variant: UploadVariant): void => {
+  const showVariant = (variant: UploadVariant): void => {
     if (state.variant === variant) {
       return;
     }
@@ -361,7 +361,9 @@ export function createUpload(options: UploadOptions): Upload {
       if (state.loaded === undefined) {
         return {
           caption: 'Your map',
-          header: [],
+          header: [
+            el('p', 'variant-hint', 'Upload any MapLibre style to check its colours'),
+          ],
           score: [],
           body: [introPanel(), ...errorPanels(state.error), aboutPanel()],
           cover: [
@@ -379,13 +381,6 @@ export function createUpload(options: UploadOptions): Upload {
       const loaded = state.loaded;
       const view = activeView(loaded);
       const { remediated } = loaded;
-
-      const segments: Array<Segment<UploadVariant>> = [
-        { key: 'original', label: 'Original' },
-      ];
-      if (remediated !== undefined) {
-        segments.push({ key: 'accessible', label: 'Accessible' });
-      }
 
       const body: HTMLElement[] = [
         filePanel(loaded, view, startOver),
@@ -417,14 +412,25 @@ export function createUpload(options: UploadOptions): Upload {
       body.push(technicalPanel(view, humaniseClassId), aboutPanel());
 
       return {
-        caption: `Your map · ${loaded.fileName}`,
+        caption:
+          state.variant === 'accessible' && remediated !== undefined
+            ? `Your map · ${loaded.fileName} · accessible palette`
+            : `Your map · ${loaded.fileName}`,
         header: [
-          segmented({
-            segments,
-            active: state.variant,
-            ariaLabel: 'Which version of your style to show',
-            onSelect: selectVariant,
-          }),
+          ...(remediated === undefined
+            ? []
+            : [
+                toggleButton({
+                  label:
+                    state.variant === 'original'
+                      ? 'Show accessible version'
+                      : 'Show original',
+                  pressed: state.variant === 'accessible',
+                  onToggle: () => {
+                    showVariant(state.variant === 'original' ? 'accessible' : 'original');
+                  },
+                }),
+              ]),
           ...(state.remediating
             ? [el('p', 'variant-hint', 'Working out an accessible palette…')]
             : []),
@@ -607,9 +613,8 @@ function swatchGrid(options: SwatchGridOptions): HTMLElement {
     el(
       'p',
       'grid-note',
-      'Each card shows the colour as the style paints it, then how it reads to normal (N), ' +
-        'red-blind (P), green-blind (D) and blue-yellow blind (T) viewers. Pick a card to ' +
-        'see what it collides with.',
+      'Each card: the colour as painted, then how it reads to normal (N), red-blind (P), ' +
+        'green-blind (D) and blue-yellow blind (T) viewers. Pick one to see its clashes.',
     ),
   );
 
@@ -701,21 +706,10 @@ function introPanel(): HTMLElement {
   const section = el('section', 'panel');
   section.append(el('h2', 'panel-title', 'Your map'));
   section.append(
-    el(
-      'p',
-      'cta-text',
-      'Drop in a MapLibre style JSON file and every colour it paints is pulled out, ' +
-        'checked against every other colour under three kinds of colour blindness, and ' +
-        'shown as a grid of swatches you can compare.',
-    ),
+    el('p', 'cta-text', 'Drop in a MapLibre style and every colour it paints is audited.'),
   );
   section.append(
-    el(
-      'p',
-      'secondary-hint',
-      'The map itself is not drawn: a style names its data sources but does not carry ' +
-        'them, and the colours are all an audit needs.',
-    ),
+    el('p', 'secondary-hint', 'The map is not drawn - a style carries colours, not data.'),
   );
   return section;
 }
@@ -737,8 +731,7 @@ function workingPanel(count: number): HTMLElement {
     el(
       'p',
       'note',
-      `Spreading ${String(count)} colours through lightness and checking the result. ` +
-        'This runs in a background thread, so the audit stays usable while it works.',
+      `Spreading ${String(count)} colours through lightness, in a background thread.`,
     ),
   );
   return section;
@@ -784,8 +777,7 @@ function exportPanel(loaded: Loaded, remediated: Remediated): HTMLElement {
     el(
       'p',
       'secondary-hint',
-      `Your own style file with ${String(remediated.changed)} colours replaced. Layers, ` +
-        'sources, filters and zoom levels are untouched, so it is a drop-in replacement.',
+      `Your own file with ${String(remediated.changed)} colours replaced; nothing else touched.`,
     ),
   );
   return section;

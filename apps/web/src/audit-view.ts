@@ -135,6 +135,18 @@ export function scoreCard(view: AuditView, comparedTo?: AuditView): HTMLElement 
 
   card.append(label, el('p', 'score-headline', summary.headline));
 
+  // One line, never folded away: the number above means nothing to a reader
+  // who has not been told what a clash is.
+  card.append(
+    el(
+      'p',
+      'score-plain',
+      summary.clashes === 0
+        ? 'Every pair of colours on this map stays distinguishable.'
+        : 'A clash is a pair of colours that looks the same to people with colour blindness.',
+    ),
+  );
+
   if (comparedTo !== undefined) {
     const was = summariseAudit(comparedTo.classes, comparedTo.audit).clashes;
     if (was > summary.clashes) {
@@ -169,7 +181,7 @@ export function visionPanel(
   onMode: (mode: VisionMode) => void,
 ): HTMLElement {
   const section = el('section', 'panel');
-  section.append(el('h2', 'panel-title', 'Preview as'));
+  section.append(el('h2', 'panel-title', 'Simulate colour blindness'));
 
   const group = el('div', 'modes');
   group.setAttribute('role', 'radiogroup');
@@ -243,11 +255,8 @@ export function clashPanel(options: ClashPanelOptions): HTMLElement {
 
     const text = el('div', 'clash-labels');
     text.append(
-      el(
-        'span',
-        'clash-codes',
-        `${options.label(pair.classA)} ↔ ${options.label(pair.classB)}`,
-      ),
+      el('span', 'clash-name', options.label(pair.classA)),
+      el('span', 'clash-name', options.label(pair.classB)),
       el(
         'span',
         'clash-meta',
@@ -405,6 +414,23 @@ export function technicalPanel(
   }
 
   return disclosure('Technical details', body);
+}
+
+/**
+ * Three lines on what the tool is doing, for a reader who has just arrived.
+ *
+ * Folded away, because it is read once and never again.
+ */
+export function howItWorksPanel(): HTMLElement {
+  const list = el('ul', 'steps');
+  for (const step of [
+    'We check every pair of colours on the map',
+    'We simulate three types of colour blindness',
+    'Colours that become too similar are flagged as clashes',
+  ]) {
+    list.append(el('li', undefined, step));
+  }
+  return disclosure('How it works', list);
 }
 
 export function aboutPanel(): HTMLElement {

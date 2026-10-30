@@ -13,7 +13,7 @@
 
 import { VISION_MODE_LABELS, type VisionMode } from '@carto-a11y/core';
 
-import { visionPanel, type ModeView } from './audit-view.js';
+import { howItWorksPanel, visionPanel, type ModeView } from './audit-view.js';
 import { createDemo, isSheetLayout, type Demo } from './demo.js';
 import { el, installFilters, segmented, type Segment } from './dom.js';
 import { createUpload } from './upload.js';
@@ -137,6 +137,9 @@ export async function startApp(root: HTMLElement): Promise<void> {
     mounts.variant.replaceChildren(...view.header);
     mounts.score.replaceChildren(...view.score);
     mounts.body.replaceChildren(
+      // Both modes get the same three lines about what is being measured,
+      // above everything they have to say about one particular map.
+      howItWorksPanel(),
       ...(view.vision
         ? [
             visionPanel(mode, (next) => {

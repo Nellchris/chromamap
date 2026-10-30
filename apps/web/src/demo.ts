@@ -47,7 +47,7 @@ import {
   type AuditView,
   type ModeView,
 } from './audit-view.js';
-import { disclosure, download, el, segmented } from './dom.js';
+import { disclosure, download, el, toggleButton } from './dom.js';
 
 setWorkerUrl(maplibreWorkerUrl);
 
@@ -85,6 +85,31 @@ interface UnitInfo {
  * Demo data
  * ------------------------------------------------------------------ */
 
+/**
+ * Grow a box to hold every position in a coordinate tree.
+ *
+ * A Polygon nests its positions two deep and a MultiPolygon three, and this
+ * data has both. Recursing to the first pair of numbers covers either without
+ * having to branch on the geometry type - and, more to the point, without
+ * mistaking a MultiPolygon's ring for a position, which would feed arrays to
+ * `Math.min` and turn the whole island's bounds into NaN.
+ */
+function growBox(box: Bbox, coordinates: readonly unknown[]): void {
+  const [first, second] = coordinates;
+  if (typeof first === 'number' && typeof second === 'number') {
+    box.west = Math.min(box.west, first);
+    box.east = Math.max(box.east, first);
+    box.south = Math.min(box.south, second);
+    box.north = Math.max(box.north, second);
+    return;
+  }
+  for (const child of coordinates) {
+    if (Array.isArray(child)) {
+      growBox(box, child as readonly unknown[]);
+    }
+  }
+}
+
 /** Bounding box per geological unit, so a clash can be zoomed to. */
 function unitBounds(geojson: unknown): Map<string, Bbox> {
   const bounds = new Map<string, Bbox>();
@@ -101,21 +126,7 @@ function unitBounds(geojson: unknown): Map<string, Bbox> {
       continue;
     }
     const box = bounds.get(unit) ?? { west: 180, south: 90, east: -180, north: -90 };
-    for (const ring of coordinates as unknown[]) {
-      if (!Array.isArray(ring)) {
-        continue;
-      }
-      for (const position of ring as unknown[]) {
-        if (!Array.isArray(position) || position.length < 2) {
-          continue;
-        }
-        const [lon, lat] = position as [number, number];
-        box.west = Math.min(box.west, lon);
-        box.east = Math.max(box.east, lon);
-        box.south = Math.min(box.south, lat);
-        box.north = Math.max(box.north, lat);
-      }
-    }
+    growBox(box, coordinates as readonly unknown[]);
     bounds.set(unit, box);
   }
   return bounds;
@@ -147,6 +158,25 @@ function unitInfo(metadata: unknown): Map<string, UnitInfo> {
   return units;
 }
 
+/**
+ * The best readable name there is for a unit.
+ *
+ * Usually the USGS `FullName`. For a handful of units - five of the 97 - the
+ * source table carries no description at all and `fullName` is just the code
+ * repeated, so the rock type and the volcano stand in: still something a
+ * reader can hold on to, where a bare `Qk3` is not.
+ */
+function readableName(unit: string, info: UnitInfo | undefined): string | undefined {
+  if (info === undefined) {
+    return undefined;
+  }
+  if (info.fullName !== '' && info.fullName !== unit) {
+    return info.fullName;
+  }
+  const parts = [info.rockType, info.volcano].filter((part) => part !== '');
+  return parts.length === 0 ? undefined : parts.join(', ');
+}
+
 /** `geologic-units/Qkh` names unit `Qkh`; a plain layer id names nothing. */
 function unitOf(classId: string): string | undefined {
   const slash = classId.lastIndexOf('/');
@@ -157,9 +187,23 @@ function unitOf(classId: string): string | undefined {
   return unit === '' || unit === 'default' ? undefined : unit;
 }
 
-/** A unit code is the short name; the full name is the tooltip. */
+/** A unit code, for the dense technical table where a sentence will not fit. */
 function codeOf(cls: MapClass): string {
   return unitOf(cls.id) ?? humaniseClassId(cls.id);
+}
+
+/**
+ * What to call a unit anywhere a reader is being spoken to.
+ *
+ * `Qk5` is what the style knows and what the map is labelled with, and it is
+ * no use at all to someone reading a clash for the first time. The full name
+ * from `unit-metadata.json` leads, with the code kept after it so the two can
+ * still be matched up against the map.
+ */
+function nameOf(cls: MapClass): string {
+  const code = unitOf(cls.id);
+  const name = humaniseClassId(cls);
+  return code === undefined || name === code ? name : `${name} (${code})`;
 }
 
 /** True when the panel is a sheet over the map rather than a column beside it. */
@@ -242,7 +286,7 @@ function buildVariant(
   const background = extractBackground(style);
   const classes = extractClasses(style).map((cls) => {
     const unit = unitOf(cls.id);
-    const name = unit === undefined ? undefined : units.get(unit)?.fullName;
+    const name = unit === undefined ? undefined : readableName(unit, units.get(unit));
     if (name !== undefined && name !== '') {
       cls.displayName = name;
     }
@@ -367,7 +411,7 @@ export async function createDemo(options: DemoOptions): Promise<Demo> {
     }
   });
 
-  const selectVariant = (key: VariantKey): void => {
+  const showVariant = (key: VariantKey): void => {
     if (state.active === key) {
       return;
     }
@@ -389,7 +433,7 @@ export async function createDemo(options: DemoOptions): Promise<Demo> {
       const body: HTMLElement[] = [
         clashPanel({
           view: variant,
-          label: codeOf,
+          label: nameOf,
           activePair: state.activePair,
           showAll: state.showAllClashes,
           onPair: (pair) => {
@@ -414,18 +458,22 @@ export async function createDemo(options: DemoOptions): Promise<Demo> {
       );
 
       return {
-        caption: 'Hawaiʻi Geological Map',
+        caption:
+          variant.key === 'accessible'
+            ? 'Hawaiʻi Geological Map · accessible palette'
+            : 'Hawaiʻi Geological Map',
         header:
           state.variants.length > 1
             ? [
-                segmented({
-                  segments: state.variants.map((entry) => ({
-                    key: entry.key,
-                    label: entry.label,
-                  })),
-                  active: state.active,
-                  ariaLabel: 'Which version of the map to show',
-                  onSelect: selectVariant,
+                toggleButton({
+                  label:
+                    state.active === 'original'
+                      ? 'Show accessible version'
+                      : 'Show original',
+                  pressed: state.active === 'accessible',
+                  onToggle: () => {
+                    showVariant(state.active === 'original' ? 'accessible' : 'original');
+                  },
                 }),
               ]
             : [],
@@ -479,8 +527,8 @@ function attachUnitPopup(map: MapLibreMap, state: DemoState): void {
     head.append(el('span', 'popup-code', unit));
     node.append(head);
 
-    const name = info?.fullName ?? unit;
-    if (name !== unit) {
+    const name = readableName(unit, info);
+    if (name !== undefined) {
       node.append(el('p', 'popup-name', name));
     }
     const rows: Array<[string, string]> = [];
@@ -585,11 +633,7 @@ function ownMapPanel(onAuditOwnMap: () => void): HTMLElement {
   const section = el('section', 'panel cta');
   section.append(el('h2', 'panel-title', 'Audit your own map'));
   section.append(
-    el(
-      'p',
-      'cta-text',
-      'Have a MapLibre style of your own? Check its colours the same way - in your browser, with nothing uploaded anywhere.',
-    ),
+    el('p', 'cta-text', 'Check your own MapLibre style the same way, in your browser.'),
   );
   const button = el('button', 'cta-button', 'Audit your own map →');
   button.type = 'button';
@@ -691,7 +735,7 @@ function legendPanel(state: DemoState, mode: VisionMode): HTMLElement {
       const item = el('li', 'legend-item');
       const chip = el('span', 'legend-swatch');
       chip.style.background = rgbToHex(seenColor(cls, variant.background, mode));
-      const name = info?.fullName ?? unit;
+      const name = readableName(unit, info) ?? unit;
       item.title = `${unit} — ${name}`;
       item.append(chip, el('span', 'legend-code', unit), el('span', 'legend-name', name));
       list.append(item);

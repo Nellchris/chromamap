@@ -7,10 +7,26 @@ audit has to say about it.
 | ---- | ---------- |
 | `data/units.geojson` | 5,681 polygons in 97 map units, Big Island only |
 | `data/unit-metadata.json` | Per-unit name, age, volcano and official USGS fill colour |
-| `styles/baseline.json` | A MapLibre style using the published USGS colours, over a CARTO Positron basemap |
+| `styles/baseline.json` | A MapLibre style using the published USGS colours, over a neutral grey basemap |
 | `styles/remediated.json` | The same style with an accessible palette |
 | `audit-baseline.json` | The audit of the baseline |
 | `audit-remediated.json` | The audit of the remediated version |
+
+## The basemap
+
+The demo draws over **Esri World Light Gray Canvas**, which needs no API key
+and is deliberately desaturated: this is a tool for judging colour, and a
+basemap with colours of its own would shift how every unit above it reads.
+
+It used to be CARTO Positron. CARTO now requires an API key for its basemaps
+and serves a watermarked placeholder without one - the same 2,049-byte tile
+whatever you ask for - so the tiles arrived with HTTP 200 and nothing on them.
+To go back to Positron, put your key in the `basemap` source of both styles:
+
+```json
+"tiles": ["https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png?api_key=YOUR_KEY"],
+"attribution": "© OpenStreetMap contributors © CARTO"
+```
 
 ## Where the data comes from
 
