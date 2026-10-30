@@ -29,33 +29,22 @@ import {
 } from '@carto-a11y/core';
 
 import {
-  aboutPanel,
   auditView,
   changedPanel,
   clashPanel,
   clashPartners,
   downloadsPanel,
+  funFactPanel,
   scoreCard,
   seenColor,
   type AuditView,
   type ModeView,
 } from './audit-view.js';
 import { download, el, toggleButton } from './dom.js';
-import { VARIANTS } from './demo.js';
-// Bundled as text rather than fetched: a sample then behaves exactly like a
-// file a reader drops in, and works with the page open from disk.
-import nlcdSample from '../../../demos/samples/nlcd-landcover.json?raw';
-import zoningSample from '../../../demos/samples/urban-zoning.json?raw';
 import type { RemediateReply, RemediateRequest } from './remediate.worker.js';
 
 /** A style file big enough to be a mistake rather than a map. */
 const MAX_BYTES = 32 * 1024 * 1024;
-
-/** Styles a reader can try without having one of their own to hand. */
-const SAMPLES: ReadonlyArray<{ label: string; fileName: string; text: string }> = [
-  { label: 'Land Cover (NLCD)', fileName: 'nlcd-landcover.json', text: nlcdSample },
-  { label: 'Urban Zoning', fileName: 'urban-zoning.json', text: zoningSample },
-];
 
 /** The one-letter key under each simulated swatch. */
 const MODE_KEYS: Record<VisionMode, string> = {
@@ -101,10 +90,23 @@ interface UploadState {
 export interface UploadOptions {
   /** Ask the shell to render again, after this mode has changed its state. */
   rerender: () => void;
+  /**
+   * Go back to the landing page.
+   *
+   * The file picker lives there now, so "audit another file" is a way out of
+   * this view rather than a control inside it.
+   */
+  onLeave: () => void;
 }
 
 export interface Upload {
   view(mode: VisionMode): ModeView;
+  /** Audit a style the landing page has read for us. */
+  open(fileName: string, text: string): void;
+  /** Read a file the landing page was handed, then audit it. */
+  openFile(file: File): void;
+  /** True once there is something to show in the audit view. */
+  isLoaded(): boolean;
 }
 
 function messageOf(error: unknown): string {
@@ -204,10 +206,10 @@ export function createUpload(options: UploadOptions): Upload {
     state.showAllClashes = false;
   };
 
-  /** Put the drop zone back, ready for another file. */
+  /** Drop this style and go back for another. */
   const startOver = (): void => {
     reset();
-    options.rerender();
+    options.onLeave();
   };
 
   /** Work out the accessible palette, off the main thread where possible. */
@@ -311,27 +313,6 @@ export function createUpload(options: UploadOptions): Upload {
       });
   };
 
-  const loadExample = (): void => {
-    reset();
-    state.reading = true;
-    options.rerender();
-    void fetch(VARIANTS.original.url)
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`the example returned HTTP ${String(response.status)}`);
-        }
-        return response.text();
-      })
-      .then((text) => {
-        accept('hawaii-baseline.json', text);
-      })
-      .catch((error: unknown) => {
-        reset();
-        state.error = `The example could not be loaded: ${messageOf(error)}`;
-        options.rerender();
-      });
-  };
-
   /** The audit the panel is currently showing. */
   const activeView = (loaded: Loaded): AuditView =>
     state.variant === 'accessible' && loaded.remediated !== undefined
@@ -367,24 +348,19 @@ export function createUpload(options: UploadOptions): Upload {
   };
 
   return {
+    open: accept,
+    openFile,
+    isLoaded: () => state.loaded !== undefined || state.reading,
     view(mode) {
       if (state.loaded === undefined) {
+        // Only reachable while a dropped file is still being read: the landing
+        // page is what takes a file, and it opens this view once there is one.
         return {
           caption: 'Your map',
-          header: [
-            el('p', 'variant-hint', 'Upload any MapLibre style to check its colours'),
-          ],
+          header: [],
           score: [],
-          body: [introPanel(), ...errorPanels(state.error), aboutPanel()],
-          cover: [
-            dropZone({
-              reading: state.reading,
-              error: state.error,
-              onFile: openFile,
-              onSample: accept,
-              onExample: loadExample,
-            }),
-          ],
+          body: [readingPanel(state), ...errorPanels(state.error)],
+          cover: [el('div', 'cover-wait')],
           vision: false,
         };
       }
@@ -424,7 +400,7 @@ export function createUpload(options: UploadOptions): Upload {
           after: remediated?.view,
           extra: remediated === undefined ? [] : exportButtons(loaded, remediated),
         }),
-        aboutPanel(),
+        funFactPanel(),
       );
 
       return {
@@ -475,116 +451,6 @@ export function createUpload(options: UploadOptions): Upload {
 }
 
 /* ------------------------------------------------------------------ *
- * The drop zone
- * ------------------------------------------------------------------ */
-
-interface DropZoneOptions {
-  reading: boolean;
-  error: string | undefined;
-  onFile: (file: File) => void;
-  /** Load one of the bundled sample styles, by name and text. */
-  onSample: (fileName: string, text: string) => void;
-  onExample: () => void;
-}
-
-/**
- * Where a style comes in.
- *
- * The drag highlight is toggled on the node directly rather than through a
- * re-render: replacing the element mid-drag would cancel the drag itself.
- */
-function dropZone(options: DropZoneOptions): HTMLElement {
-  const wrap = el('div', 'drop-wrap');
-  const zone = el('div', 'drop-zone');
-
-  if (options.reading) {
-    zone.append(
-      el('p', 'drop-title', 'Reading your style…'),
-      el('p', 'drop-hint', 'Parsing the JSON and auditing every colour pair.'),
-    );
-    wrap.append(zone);
-    return wrap;
-  }
-
-  zone.append(
-    el('p', 'drop-title', 'Audit your own map'),
-    el('p', 'drop-hint', 'Drop a MapLibre style JSON file to audit its colours'),
-  );
-
-  const picker = el('label', 'drop-button');
-  const input = el('input', 'visually-hidden');
-  input.type = 'file';
-  input.accept = '.json,application/json';
-  input.addEventListener('change', () => {
-    const file = input.files?.[0];
-    if (file !== undefined) {
-      options.onFile(file);
-    }
-  });
-  picker.append(input, el('span', undefined, 'Choose a file…'));
-  zone.append(picker);
-
-  const samples = el('p', 'drop-samples');
-  samples.append(el('span', 'drop-samples-label', 'Try a sample:'));
-  for (const sample of SAMPLES) {
-    const link = el('button', 'link-button', sample.label);
-    link.type = 'button';
-    link.addEventListener('click', () => {
-      options.onSample(sample.fileName, sample.text);
-    });
-    samples.append(link);
-  }
-  const example = el('button', 'link-button', 'Hawaiʻi baseline');
-  example.type = 'button';
-  example.addEventListener('click', options.onExample);
-  samples.append(example);
-  zone.append(samples);
-
-  if (options.error !== undefined) {
-    zone.append(el('p', 'drop-error', options.error));
-  }
-
-  zone.append(
-    el(
-      'p',
-      'drop-privacy',
-      'Your file never leaves this browser. Every colour is measured on your own device.',
-    ),
-  );
-
-  const stop = (event: DragEvent): void => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-  zone.addEventListener('dragenter', (event) => {
-    stop(event);
-    zone.classList.add('is-dragging');
-  });
-  zone.addEventListener('dragover', (event) => {
-    stop(event);
-    if (event.dataTransfer !== null) {
-      event.dataTransfer.dropEffect = 'copy';
-    }
-    zone.classList.add('is-dragging');
-  });
-  zone.addEventListener('dragleave', (event) => {
-    stop(event);
-    zone.classList.remove('is-dragging');
-  });
-  zone.addEventListener('drop', (event) => {
-    stop(event);
-    zone.classList.remove('is-dragging');
-    const file = event.dataTransfer?.files[0];
-    if (file !== undefined) {
-      options.onFile(file);
-    }
-  });
-
-  wrap.append(zone);
-  return wrap;
-}
-
-/* ------------------------------------------------------------------ *
  * The swatch grid: what stands in for a map
  * ------------------------------------------------------------------ */
 
@@ -632,7 +498,7 @@ function swatchGrid(options: SwatchGridOptions): HTMLElement {
   );
   head.append(headText);
 
-  const another = el('button', 'secondary-button grid-another', 'Load another file…');
+  const another = el('button', 'secondary-button grid-another', 'Audit another file');
   another.type = 'button';
   another.addEventListener('click', options.onReset);
   head.append(another);
@@ -724,14 +590,15 @@ function gridCard(
  * Upload-only panels
  * ------------------------------------------------------------------ */
 
-function introPanel(): HTMLElement {
+function readingPanel(state: UploadState): HTMLElement {
   const section = el('section', 'panel');
   section.append(el('h2', 'panel-title', 'Your map'));
   section.append(
-    el('p', 'cta-text', 'Drop in a MapLibre style and every colour it paints is audited.'),
-  );
-  section.append(
-    el('p', 'secondary-hint', 'The map is not drawn - a style carries colours, not data.'),
+    el(
+      'p',
+      'cta-text',
+      state.reading ? 'Reading your style…' : 'Waiting for a style to audit.',
+    ),
   );
   return section;
 }
@@ -773,7 +640,7 @@ function filePanel(loaded: Loaded, view: AuditView, onReset: () => void): HTMLEl
       )} layers · audited in this browser, nothing uploaded`,
     ),
   );
-  const button = el('button', 'secondary-button', 'Load another file…');
+  const button = el('button', 'secondary-button', 'Audit another file');
   button.type = 'button';
   button.addEventListener('click', onReset);
   section.append(button);

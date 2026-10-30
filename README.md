@@ -12,7 +12,7 @@ before they ship.
 | `packages/cli`       | `@carto-a11y/cli`    | `carto-a11y` command line. Uses core.     |
 | `packages/adapters`  | `@carto-a11y/adapters` | Loaders for styles, tiles and vectors.  |
 | `apps/web`           | `@carto-a11y/web`    | Vite + TypeScript browser UI. Uses core.  |
-| `demos/samples`      | —                    | Two styles to try the upload mode with.   |
+| `demos/nyc-zoning`   | —                    | Manhattan zoning, from NYC Open Data.     |
 | `demos/hawaii`       | —                    | Sample data and styles for demos.         |
 | `scripts`            | —                    | Repo maintenance scripts.                 |
 | `docs`               | —                    | Design notes and references.              |

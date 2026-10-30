@@ -37,11 +37,11 @@ import {
 } from '@carto-a11y/core';
 
 import {
-  aboutPanel,
   auditView,
   changedPanel,
   clashPanel,
   downloadsPanel,
+  funFactPanel,
   scoreCard,
   seenColor,
   type AuditView,
@@ -52,18 +52,159 @@ import { disclosure, download, el, toggleButton } from './dom.js';
 setWorkerUrl(maplibreWorkerUrl);
 
 const BASE = import.meta.env.BASE_URL;
-const UNITS_URL = `${BASE}data/units.geojson`;
-const METADATA_URL = `${BASE}data/unit-metadata.json`;
 
-/** The two styles the demo compares. */
-export const VARIANTS = {
-  original: { label: 'Original', url: `${BASE}styles/baseline.json` },
-  accessible: { label: 'Accessible', url: `${BASE}styles/remediated.json` },
-} as const;
+/** Which demo a reader has opened. */
+export type DemoKey = 'hawaii' | 'nyc';
 
-type VariantKey = keyof typeof VARIANTS;
+/** What one class of a demo is called, and what a popup should say about it. */
+export interface ClassInfo {
+  /** The readable name: "Lava flows of Mauna Loa", "Local Commercial". */
+  name: string;
+  /** The legend heading this class is filed under. */
+  group: string;
+  /** Rows for the popup, in order. */
+  rows: Array<[string, string]>;
+}
 
-/** The id of the highlight layer this app adds on top of the demo style. */
+/**
+ * Everything that differs between one real-data demo and another.
+ *
+ * The two demos are the same program - a style, its data, an audit of its
+ * colours - and differ only in what their features are called and how their
+ * metadata is shaped. Keeping that difference in one declaration rather than
+ * in branches is what let the second demo cost a table rather than a rewrite.
+ */
+export interface DemoSpec {
+  key: DemoKey;
+  /** The caption over the map. */
+  title: string;
+  /** The line under the title on the landing page. */
+  blurb: string;
+  /** A handful of real colours from the palette, for the landing card. */
+  preview: string[];
+  /** Where this demo's files are served from, e.g. `/hawaii/`. */
+  base: string;
+  /** The fill layer the popups attach to. */
+  layerId: string;
+  /** The source id the highlight layer borrows. */
+  sourceId: string;
+  /** Feature property the style's match expression switches on. */
+  classProperty: string;
+  /** Feature property a popup shows as the short code. */
+  codeProperty: string;
+  /** The metadata file, keyed by class. */
+  metadataFile: string;
+  /** The data file, kept so the palette can be exported with it. */
+  dataFile: string;
+  /** Turn that metadata into the table the panel reads. */
+  readInfo(raw: unknown): Map<string, ClassInfo>;
+  /** What to call the GeoJSON this demo exports. */
+  exportName: string;
+}
+
+function str(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+/** Each entry of a metadata object, as a record. */
+function entries(raw: unknown): Array<[string, Record<string, unknown>]> {
+  if (typeof raw !== 'object' || raw === null) {
+    return [];
+  }
+  return Object.entries(raw as Record<string, unknown>).map(([key, value]) => [
+    key,
+    (typeof value === 'object' && value !== null ? value : {}) as Record<string, unknown>,
+  ]);
+}
+
+export const DEMOS: Record<DemoKey, DemoSpec> = {
+  hawaii: {
+    key: 'hawaii',
+    title: 'Hawaiʻi Geological Map',
+    blurb: '97 units · Real USGS data',
+    preview: ['#ffffcc', '#ffff00', '#99b3b3', '#004db3', '#ebde99', '#deb399'],
+    base: `${BASE}hawaii/`,
+    layerId: 'geologic-units',
+    sourceId: 'units',
+    classProperty: 'MapUnit',
+    codeProperty: 'MapUnit',
+    metadataFile: 'data/unit-metadata.json',
+    dataFile: 'data/units.geojson',
+    exportName: 'accessible-units.geojson',
+    readInfo(raw) {
+      const table = new Map<string, ClassInfo>();
+      for (const [unit, entry] of entries(raw)) {
+        const full = str(entry['fullName']);
+        const rock = str(entry['rockType']);
+        const volcano = str(entry['volcano']) || 'Hawaiʻi';
+        const age = str(entry['age']);
+        // Five of the 97 units have no description in the USGS table at all
+        // and `fullName` is just the code repeated; rock type and volcano are
+        // then the best a reader can be given.
+        const name =
+          full !== '' && full !== unit
+            ? full
+            : [rock, volcano].filter((part) => part !== '').join(', ') || unit;
+        const rows: Array<[string, string]> = [];
+        if (age !== '' && age !== 'unknown') {
+          rows.push(['Age', age]);
+        }
+        if (rock !== '') {
+          rows.push(['Rock', rock]);
+        }
+        rows.push(['Volcano', volcano]);
+        table.set(unit, { name, group: volcano, rows });
+      }
+      return table;
+    },
+  },
+  nyc: {
+    key: 'nyc',
+    title: 'Manhattan Zoning',
+    blurb: '11 zone types · NYC Open Data',
+    preview: ['#fff07f', '#ffd42a', '#ffaa00', '#ff9e9e', '#ec1c24', '#8b3fa8'],
+    base: `${BASE}nyc-zoning/`,
+    layerId: 'zoning-districts',
+    sourceId: 'zones',
+    classProperty: 'Category',
+    codeProperty: 'ZoneDist',
+    metadataFile: 'data/zone-metadata.json',
+    dataFile: 'data/zones.geojson',
+    exportName: 'accessible-zones.geojson',
+    readInfo(raw) {
+      const table = new Map<string, ClassInfo>();
+      for (const [category, entry] of entries(raw)) {
+        const name = str(entry['name']) || category;
+        const full = str(entry['fullName']);
+        const districts = entry['districts'];
+        // The name is already the popup's heading; the rows say what it covers.
+        const rows: Array<[string, string]> = [];
+        if (full !== '') {
+          rows.push(['Covers', full]);
+        }
+        if (typeof districts === 'number') {
+          rows.push(['Districts on the island', String(districts)]);
+        }
+        table.set(category, { name, group: familyOf(category), rows });
+      }
+      return table;
+    },
+  },
+};
+
+/** Residential, commercial, manufacturing, open space: the legend's headings. */
+function familyOf(category: string): string {
+  if (category.startsWith('R')) return 'Residential';
+  if (category.startsWith('C')) return 'Commercial';
+  if (category.startsWith('M')) return 'Manufacturing';
+  if (category === 'PARK' || category === 'BPC') return 'Open space and special districts';
+  return 'Other';
+}
+
+/** Which of the two palettes the panel is showing. */
+type VariantKey = 'original' | 'accessible';
+
+/** The id of the highlight layer this app adds on top of a demo style. */
 const HIGHLIGHT_LAYER = 'carto-a11y-highlight';
 
 interface Bbox {
@@ -71,14 +212,6 @@ interface Bbox {
   south: number;
   east: number;
   north: number;
-}
-
-/** What `unit-metadata.json` knows about one map unit. */
-interface UnitInfo {
-  fullName: string;
-  age: string;
-  volcano: string;
-  rockType: string;
 }
 
 /* ------------------------------------------------------------------ *
@@ -110,8 +243,8 @@ function growBox(box: Bbox, coordinates: readonly unknown[]): void {
   }
 }
 
-/** Bounding box per geological unit, so a clash can be zoomed to. */
-function unitBounds(geojson: unknown): Map<string, Bbox> {
+/** Bounding box per class, so a clash can be zoomed to. */
+function featureBounds(geojson: unknown, property: string): Map<string, Bbox> {
   const bounds = new Map<string, Bbox>();
   const features = (geojson as { features?: unknown }).features;
   if (!Array.isArray(features)) {
@@ -119,7 +252,9 @@ function unitBounds(geojson: unknown): Map<string, Bbox> {
   }
 
   for (const feature of features) {
-    const unit = (feature as { properties?: { MapUnit?: unknown } }).properties?.MapUnit;
+    const unit = (feature as { properties?: Record<string, unknown> }).properties?.[
+      property
+    ];
     const coordinates = (feature as { geometry?: { coordinates?: unknown } }).geometry
       ?.coordinates;
     if (typeof unit !== 'string' || !Array.isArray(coordinates)) {
@@ -133,72 +268,32 @@ function unitBounds(geojson: unknown): Map<string, Bbox> {
 }
 
 /**
- * Readable names for the geological units.
+ * `geologic-units/Qkh` names class `Qkh`; a plain layer id names nothing.
  *
- * `unit-metadata.json` carries the USGS `FullName` for each map unit, so the
- * panel can say "Lava flows of Mauna Loa" where the style only knows `Qmlh`.
- * `extractClasses` fills `displayName` in by itself when a style holds its
- * GeoJSON inline; this demo loads its data by URL, so the app does that job.
+ * The branch label of a match expression is the key both demos' metadata is
+ * filed under - a map unit on one, a zoning category on the other.
  */
-function unitInfo(metadata: unknown): Map<string, UnitInfo> {
-  const units = new Map<string, UnitInfo>();
-  if (typeof metadata !== 'object' || metadata === null) {
-    return units;
-  }
-  const str = (value: unknown): string => (typeof value === 'string' ? value : '');
-  for (const [unit, raw] of Object.entries(metadata as Record<string, unknown>)) {
-    const entry = raw as Record<string, unknown> | null;
-    units.set(unit, {
-      fullName: str(entry?.['fullName']) || unit,
-      age: str(entry?.['age']),
-      volcano: str(entry?.['volcano']) || 'Hawaiʻi',
-      rockType: str(entry?.['rockType']),
-    });
-  }
-  return units;
-}
-
-/**
- * The best readable name there is for a unit.
- *
- * Usually the USGS `FullName`. For a handful of units - five of the 97 - the
- * source table carries no description at all and `fullName` is just the code
- * repeated, so the rock type and the volcano stand in: still something a
- * reader can hold on to, where a bare `Qk3` is not.
- */
-function readableName(unit: string, info: UnitInfo | undefined): string | undefined {
-  if (info === undefined) {
-    return undefined;
-  }
-  if (info.fullName !== '' && info.fullName !== unit) {
-    return info.fullName;
-  }
-  const parts = [info.rockType, info.volcano].filter((part) => part !== '');
-  return parts.length === 0 ? undefined : parts.join(', ');
-}
-
-/** `geologic-units/Qkh` names unit `Qkh`; a plain layer id names nothing. */
-function unitOf(classId: string): string | undefined {
+function classKey(classId: string): string | undefined {
   const slash = classId.lastIndexOf('/');
   if (slash === -1) {
     return undefined;
   }
-  const unit = classId.slice(slash + 1);
-  return unit === '' || unit === 'default' ? undefined : unit;
+  const key = classId.slice(slash + 1);
+  return key === '' || key === 'default' ? undefined : key;
 }
 
 /**
- * What to call a unit anywhere a reader is being spoken to.
+ * What to call a class anywhere a reader is being spoken to.
  *
  * `Qk5` is what the style knows and what the map is labelled with, and it is
- * no use at all to someone reading a clash for the first time. The full name
- * from `unit-metadata.json` leads, with the code kept after it so the two can
- * still be matched up against the map.
+ * no use at all to someone reading a clash for the first time. The name from
+ * the demo's metadata leads, with the key kept after it so the two can still
+ * be matched up against the map.
  */
 function nameOf(cls: MapClass): string {
-  const code = unitOf(cls.id);
+  const key = classKey(cls.id);
   const name = humaniseClassId(cls);
-  return code === undefined || name === code ? name : `${name} (${code})`;
+  return key === undefined || name === key ? name : `${name} (${key})`;
 }
 
 /** True when the panel is a sheet over the map rather than a column beside it. */
@@ -250,11 +345,12 @@ interface Variant extends AuditView {
 }
 
 interface DemoState {
+  spec: DemoSpec;
   variants: Variant[];
   active: VariantKey;
   bounds: Map<string, Bbox>;
-  /** Name, age, volcano and rock type per map unit. */
-  units: Map<string, UnitInfo>;
+  /** What this demo's metadata says about each class. */
+  info: Map<string, ClassInfo>;
   /** The source GeoJSON, kept so the palette can be exported with it. */
   geojson: unknown;
   /** The mode the shell is previewing, so the popup can follow it. */
@@ -276,12 +372,12 @@ function buildVariant(
   key: VariantKey,
   label: string,
   style: unknown,
-  units: ReadonlyMap<string, UnitInfo>,
+  info: ReadonlyMap<string, ClassInfo>,
 ): Variant {
   const background = extractBackground(style);
   const classes = extractClasses(style).map((cls) => {
-    const unit = unitOf(cls.id);
-    const name = unit === undefined ? undefined : readableName(unit, units.get(unit));
+    const key_ = classKey(cls.id);
+    const name = key_ === undefined ? undefined : info.get(key_)?.name;
     if (name !== undefined && name !== '') {
       cls.displayName = name;
     }
@@ -295,16 +391,56 @@ function buildVariant(
  * ------------------------------------------------------------------ */
 
 export interface DemoOptions {
+  /** Which of the demos to open. */
+  spec: DemoSpec;
   mapEl: HTMLElement;
   sidebar: HTMLElement;
   /** Ask the shell to render again, after the demo has changed its state. */
   rerender: () => void;
-  /** The "audit your own map" call to action takes the reader to the other tab. */
-  onAuditOwnMap: () => void;
 }
 
 export interface Demo {
   view(mode: VisionMode): ModeView;
+  /**
+   * Take this demo's map off the page.
+   *
+   * Both demos draw into the same container, so the one being left has to let
+   * go of it before the next one takes it; two live maps on one element leaves
+   * a canvas neither of them owns.
+   */
+  destroy(): void;
+}
+
+/**
+ * Point a style's GeoJSON source at the file that sits beside it.
+ *
+ * A style on disk says `../data/zones.geojson`, which is what the CLI and the
+ * repo want: the two files travel together. MapLibre, though, resolves a
+ * relative source against the *document*, not against the style it came from,
+ * so a style served at `/nyc-zoning/styles/` would send it looking in
+ * `/data/`. Rewriting the source here keeps the file portable and the map fed.
+ */
+function withResolvedData(style: unknown, spec: DemoSpec): unknown {
+  if (typeof style !== 'object' || style === null) {
+    return style;
+  }
+  const sources = (style as { sources?: Record<string, unknown> }).sources;
+  const source = sources?.[spec.sourceId];
+  if (typeof source !== 'object' || source === null) {
+    return style;
+  }
+  const data = (source as { data?: unknown }).data;
+  if (typeof data !== 'string') {
+    // Already inline, or already absolute: nothing to resolve.
+    return style;
+  }
+  return {
+    ...(style as Record<string, unknown>),
+    sources: {
+      ...sources,
+      [spec.sourceId]: { ...source, data: `${spec.base}${spec.dataFile}` },
+    },
+  };
 }
 
 async function loadJson(url: string): Promise<unknown> {
@@ -322,34 +458,38 @@ async function loadJson(url: string): Promise<unknown> {
  *   that in the demo tab and leaves the upload tab working.
  */
 export async function createDemo(options: DemoOptions): Promise<Demo> {
-  const [units, baseline, metadata] = await Promise.all([
-    loadJson(UNITS_URL),
-    loadJson(VARIANTS.original.url),
-    loadJson(METADATA_URL),
+  const { spec } = options;
+  const baselineUrl = `${spec.base}styles/baseline.json`;
+
+  const [data, baseline, metadata] = await Promise.all([
+    loadJson(`${spec.base}${spec.dataFile}`),
+    loadJson(baselineUrl),
+    loadJson(`${spec.base}${spec.metadataFile}`),
   ]);
 
-  const unitsById = unitInfo(metadata);
+  const info = spec.readInfo(metadata);
   const variants: Variant[] = [
-    buildVariant('original', VARIANTS.original.label, baseline, unitsById),
+    buildVariant('original', 'Original', withResolvedData(baseline, spec), info),
   ];
 
   // The remediated style is optional: without it the demo simply has nothing
   // to compare against, rather than failing to start.
   try {
-    const remediated = await loadJson(VARIANTS.accessible.url);
+    const remediated = await loadJson(`${spec.base}styles/remediated.json`);
     variants.push(
-      buildVariant('accessible', VARIANTS.accessible.label, remediated, unitsById),
+      buildVariant('accessible', 'Accessible', withResolvedData(remediated, spec), info),
     );
   } catch (error) {
     console.warn('[demo] no accessible version to compare with:', error);
   }
 
   const state: DemoState = {
+    spec,
     variants,
     active: 'original',
-    bounds: unitBounds(units),
-    units: unitsById,
-    geojson: units,
+    bounds: featureBounds(data, spec.classProperty),
+    info,
+    geojson: data,
     mode: 'normal',
     activePair: undefined,
     showAllClashes: false,
@@ -357,9 +497,7 @@ export async function createDemo(options: DemoOptions): Promise<Demo> {
 
   const map = new MapLibreMap({
     container: options.mapEl,
-    style: VARIANTS.original.url,
-    center: [-155.5, 19.6],
-    zoom: 8.1,
+    style: variants[0]?.style as StyleSpecification,
     attributionControl: { compact: true },
   });
   map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
@@ -383,7 +521,7 @@ export async function createDemo(options: DemoOptions): Promise<Demo> {
 
   // Re-added after every style swap, since setStyle takes the old layers away.
   map.on('style.load', () => {
-    addHighlightLayer(map);
+    addHighlightLayer(map, spec);
   });
 
   attachUnitPopup(map, state);
@@ -420,6 +558,9 @@ export async function createDemo(options: DemoOptions): Promise<Demo> {
   };
 
   return {
+    destroy() {
+      map.remove();
+    },
     view(mode) {
       state.mode = mode;
       const variant = current(state);
@@ -447,22 +588,22 @@ export async function createDemo(options: DemoOptions): Promise<Demo> {
         body.push(changedPanel(original, variant, mode));
       }
       body.push(
+        legendPanel(state, mode),
         downloadsPanel({
-          source: 'hawaii-baseline.json',
+          source: `${spec.key}-baseline.json`,
           before: original ?? variant,
           after: accessible,
-          extra: accessible === undefined ? [] : exportButtons(accessible, state.geojson),
+          extra:
+            accessible === undefined ? [] : exportButtons(spec, accessible, state.geojson),
         }),
-        ownMapPanel(options.onAuditOwnMap),
-        legendPanel(state, mode),
-        aboutPanel(),
+        funFactPanel(),
       );
 
       return {
         caption:
           variant.key === 'accessible'
-            ? 'Hawaiʻi Geological Map · accessible palette'
-            : 'Hawaiʻi Geological Map',
+            ? `${spec.title} · accessible palette`
+            : spec.title,
         header:
           state.variants.length > 1
             ? [
@@ -506,15 +647,18 @@ export async function createDemo(options: DemoOptions): Promise<Demo> {
 function attachUnitPopup(map: MapLibreMap, state: DemoState): void {
   let popup: Popup | undefined;
 
-  map.on('click', 'geologic-units', (event) => {
+  map.on('click', state.spec.layerId, (event) => {
     const feature = event.features?.[0];
-    const unit = feature?.properties?.['MapUnit'];
-    if (typeof unit !== 'string') {
+    const properties = feature?.properties ?? {};
+    const key = properties[state.spec.classProperty];
+    if (typeof key !== 'string') {
       return;
     }
-    const info = state.units.get(unit);
+    const code = properties[state.spec.codeProperty];
+    const label = typeof code === 'string' && code !== '' ? code : key;
+    const info = state.info.get(key);
     const variant = current(state);
-    const cls = variant.classes.find((entry) => unitOf(entry.id) === unit);
+    const cls = variant.classes.find((entry) => classKey(entry.id) === key);
     const colour =
       cls === undefined ? undefined : seenColor(cls, variant.background, state.mode);
 
@@ -525,23 +669,13 @@ function attachUnitPopup(map: MapLibreMap, state: DemoState): void {
       chip.style.background = rgbToHex(colour);
       head.append(chip);
     }
-    head.append(el('span', 'popup-code', unit));
+    head.append(el('span', 'popup-code', label));
     node.append(head);
 
-    const name = readableName(unit, info);
-    if (name !== undefined) {
-      node.append(el('p', 'popup-name', name));
+    if (info !== undefined && info.name !== label) {
+      node.append(el('p', 'popup-name', info.name));
     }
-    const rows: Array<[string, string]> = [];
-    if (info?.age !== undefined && info.age !== '' && info.age !== 'unknown') {
-      rows.push(['Age', info.age]);
-    }
-    if (info?.rockType !== undefined && info.rockType !== '') {
-      rows.push(['Rock', info.rockType]);
-    }
-    if (info?.volcano !== undefined && info.volcano !== '') {
-      rows.push(['Volcano', info.volcano]);
-    }
+    const rows = info?.rows ?? [];
     if (rows.length > 0) {
       const list = el('dl', 'popup-rows');
       for (const [term, value] of rows) {
@@ -557,24 +691,27 @@ function attachUnitPopup(map: MapLibreMap, state: DemoState): void {
       .addTo(map);
   });
 
-  map.on('mouseenter', 'geologic-units', () => {
+  map.on('mouseenter', state.spec.layerId, () => {
     map.getCanvas().style.cursor = 'pointer';
   });
-  map.on('mouseleave', 'geologic-units', () => {
+  map.on('mouseleave', state.spec.layerId, () => {
     map.getCanvas().style.cursor = '';
   });
 }
 
 /** A thin outline layer used to pick out the two units of a clash. */
-function addHighlightLayer(map: MapLibreMap): void {
-  if (map.getLayer(HIGHLIGHT_LAYER) !== undefined || map.getSource('units') === undefined) {
+function addHighlightLayer(map: MapLibreMap, spec: DemoSpec): void {
+  if (
+    map.getLayer(HIGHLIGHT_LAYER) !== undefined ||
+    map.getSource(spec.sourceId) === undefined
+  ) {
     return;
   }
   map.addLayer({
     id: HIGHLIGHT_LAYER,
     type: 'line',
-    source: 'units',
-    filter: ['in', ['get', 'MapUnit'], ['literal', []]],
+    source: spec.sourceId,
+    filter: ['in', ['get', spec.classProperty], ['literal', []]],
     paint: {
       'line-color': '#ffffff',
       'line-width': 2.5,
@@ -590,8 +727,8 @@ function focusPair(
   pair: AuditPair,
   sidebar: HTMLElement,
 ): void {
-  const unitA = unitOf(pair.classA.id);
-  const unitB = unitOf(pair.classB.id);
+  const unitA = classKey(pair.classA.id);
+  const unitB = classKey(pair.classB.id);
   const boxes = [unitA, unitB]
     .filter((unit): unit is string => unit !== undefined)
     .map((unit) => state.bounds.get(unit))
@@ -599,7 +736,11 @@ function focusPair(
 
   if (map.getLayer(HIGHLIGHT_LAYER) !== undefined) {
     const wanted = [unitA, unitB].filter((unit): unit is string => unit !== undefined);
-    map.setFilter(HIGHLIGHT_LAYER, ['in', ['get', 'MapUnit'], ['literal', wanted]]);
+    map.setFilter(HIGHLIGHT_LAYER, [
+      'in',
+      ['get', state.spec.classProperty],
+      ['literal', wanted],
+    ]);
   }
 
   if (boxes.length === 0) {
@@ -629,25 +770,11 @@ function focusPair(
  * Demo-only panels
  * ------------------------------------------------------------------ */
 
-/** The way across to the other tab, for a reader who has a style of their own. */
-function ownMapPanel(onAuditOwnMap: () => void): HTMLElement {
-  const section = el('section', 'panel cta');
-  section.append(el('h2', 'panel-title', 'Audit your own map'));
-  section.append(
-    el('p', 'cta-text', 'Check your own MapLibre style the same way, in your browser.'),
-  );
-  const button = el('button', 'cta-button', 'Audit your own map →');
-  button.type = 'button';
-  button.addEventListener('click', onAuditOwnMap);
-  section.append(button);
-  return section;
-}
-
-/** The remediated palette, keyed by map unit. */
+/** The remediated palette, keyed by the class the data is filed under. */
 function remediatedColours(variant: Variant): Map<string, string> {
   const colours = new Map<string, string>();
   for (const cls of variant.classes) {
-    const unit = unitOf(cls.id);
+    const unit = classKey(cls.id);
     if (unit !== undefined) {
       colours.set(unit, rgbToHex(cls.color));
     }
@@ -661,7 +788,11 @@ function remediatedColours(variant: Variant): Map<string, string> {
  * The style and the data go out together: a palette is only usable if whatever
  * draws the map can be told about it, and not every pipeline reads a style.
  */
-function exportButtons(accessible: Variant, geojson: unknown): HTMLElement[] {
+function exportButtons(
+  spec: DemoSpec,
+  accessible: Variant,
+  geojson: unknown,
+): HTMLElement[] {
   const styleButton = el('button', 'secondary-button', 'Download fixed style');
   styleButton.type = 'button';
   styleButton.addEventListener('click', () => {
@@ -682,7 +813,7 @@ function exportButtons(accessible: Variant, geojson: unknown): HTMLElement[] {
       ...(typeof source === 'object' && source !== null ? source : {}),
       features: features.map((feature) => {
         const entry = feature as { properties?: Record<string, unknown> };
-        const unit = entry.properties?.['MapUnit'];
+        const unit = entry.properties?.[spec.classProperty];
         const colour = typeof unit === 'string' ? colours.get(unit) : undefined;
         return {
           ...entry,
@@ -693,7 +824,7 @@ function exportButtons(accessible: Variant, geojson: unknown): HTMLElement[] {
         };
       }),
     };
-    download('accessible-units.geojson', `${JSON.stringify(exported)}\n`, 'application/geo+json');
+    download(spec.exportName, `${JSON.stringify(exported)}\n`, 'application/geo+json');
   });
 
   return [
@@ -713,30 +844,30 @@ function exportButtons(accessible: Variant, geojson: unknown): HTMLElement[] {
  */
 function legendPanel(state: DemoState, mode: VisionMode): HTMLElement {
   const variant = current(state);
-  const byVolcano = new Map<string, MapClass[]>();
+  const byGroup = new Map<string, MapClass[]>();
 
   for (const cls of variant.classes) {
-    const unit = unitOf(cls.id);
+    const unit = classKey(cls.id);
     if (unit === undefined) {
       continue;
     }
-    const volcano = state.units.get(unit)?.volcano ?? 'Other';
-    byVolcano.set(volcano, [...(byVolcano.get(volcano) ?? []), cls]);
+    const group = state.info.get(unit)?.group ?? 'Other';
+    byGroup.set(group, [...(byGroup.get(group) ?? []), cls]);
   }
 
   const body = el('div', 'legend');
-  const volcanoes = [...byVolcano.keys()].sort((a, b) => a.localeCompare(b));
-  for (const volcano of volcanoes) {
-    const group = byVolcano.get(volcano) ?? [];
-    body.append(el('p', 'legend-group', `${volcano} · ${String(group.length)}`));
+  const groups = [...byGroup.keys()].sort((a, b) => a.localeCompare(b));
+  for (const group of groups) {
+    const members = byGroup.get(group) ?? [];
+    body.append(el('p', 'legend-group', `${group} · ${String(members.length)}`));
     const list = el('ul', 'legend-list');
-    for (const cls of group) {
-      const unit = unitOf(cls.id) ?? cls.id;
-      const info = state.units.get(unit);
+    for (const cls of members) {
+      const unit = classKey(cls.id) ?? cls.id;
+      const info = state.info.get(unit);
       const item = el('li', 'legend-item');
       const chip = el('span', 'legend-swatch');
       chip.style.background = rgbToHex(seenColor(cls, variant.background, mode));
-      const name = readableName(unit, info) ?? unit;
+      const name = info?.name ?? unit;
       item.title = `${unit} — ${name}`;
       item.append(chip, el('span', 'legend-code', unit), el('span', 'legend-name', name));
       list.append(item);
@@ -744,6 +875,6 @@ function legendPanel(state: DemoState, mode: VisionMode): HTMLElement {
     body.append(list);
   }
 
-  const count = variant.classes.filter((cls) => unitOf(cls.id) !== undefined).length;
-  return disclosure(`Legend · ${String(count)} units`, body);
+  const count = variant.classes.filter((cls) => classKey(cls.id) !== undefined).length;
+  return disclosure(`Legend · ${String(count)} classes`, body);
 }

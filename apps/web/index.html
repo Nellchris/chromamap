@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#fafaf8" />
     <meta
       name="description"
-      content="Audit a MapLibre geological map for colour-vision accessibility, and preview it the way a dichromatic reader sees it."
+      content="See how your map looks to people with colour vision deficiency. Audit a MapLibre style's colours, preview it through three kinds of colour blindness, and download an accessible palette."
     />
     <title>CartoAccessibility Studio</title>
 
@@ -25,66 +25,62 @@
     />
   </head>
   <body>
-    <div id="app" class="app" data-sidebar="open" data-tab="demo">
-      <div class="map-wrap">
-        <div
-          id="map"
-          class="map"
-          role="application"
-          aria-label="Geological map of Hawaiʻi Island"
-        ></div>
+    <div id="app" class="app" data-sidebar="open" data-view="landing">
+      <!-- Screen one: what this is, and the two ways in. -->
+      <main id="landing" class="landing"></main>
 
-        <!--
-          Stands in front of the map in "Your Map" mode, where there is a style
-          to audit but no data to draw: the colours themselves become the view.
-        -->
-        <section id="cover" class="cover" aria-label="Extracted map colours" hidden></section>
+      <!-- Screen two: one map, or one palette, audited. -->
+      <div id="audit" class="audit" hidden>
+        <div class="map-wrap">
+          <div id="map" class="map" role="application" aria-label="The map being audited"></div>
 
-        <div class="map-caption" aria-live="polite">
-          <p id="map-caption-title" class="map-caption-title">Hawaiʻi Geological Map</p>
-          <p id="map-caption-mode" class="map-caption-mode" hidden></p>
+          <!--
+            Stands in front of the map for an uploaded style, where there are
+            colours to audit but no data to draw: the colours become the view.
+          -->
+          <section id="cover" class="cover" aria-label="Extracted map colours" hidden></section>
+
+          <div class="map-caption" aria-live="polite">
+            <p id="map-caption-title" class="map-caption-title"></p>
+            <p id="map-caption-mode" class="map-caption-mode" hidden></p>
+          </div>
         </div>
-      </div>
 
-      <aside id="sidebar" class="sidebar" aria-label="Accessibility audit">
+        <aside id="sidebar" class="sidebar" aria-label="Accessibility audit">
+          <button
+            id="sheet-handle"
+            class="sheet-handle"
+            type="button"
+            aria-controls="sidebar"
+            aria-expanded="true"
+          >
+            <span class="sheet-handle-bar" aria-hidden="true"></span>
+            <span class="visually-hidden">Expand or collapse the audit panel</span>
+          </button>
+
+          <header class="sidebar-top">
+            <a id="back" class="back" href="#">
+              <span aria-hidden="true">←</span>
+              <span>Back</span>
+            </a>
+            <div id="variant-mount"></div>
+            <div id="score-mount"></div>
+          </header>
+
+          <div class="sidebar-scroll" id="sidebar-scroll"></div>
+        </aside>
+
         <button
-          id="sheet-handle"
-          class="sheet-handle"
+          id="sidebar-toggle"
+          class="sidebar-toggle"
           type="button"
           aria-controls="sidebar"
           aria-expanded="true"
         >
-          <span class="sheet-handle-bar" aria-hidden="true"></span>
-          <span class="visually-hidden">Expand or collapse the audit panel</span>
+          <span class="sidebar-toggle-glyph" aria-hidden="true">‹</span>
+          <span class="visually-hidden">Collapse the audit panel</span>
         </button>
-
-        <header class="sidebar-top">
-          <div class="brand">
-            <p class="brand-name">CartoAccessibility Studio</p>
-            <p class="brand-tagline">
-              See how your map looks to people with colour vision deficiency
-            </p>
-          </div>
-          <div id="tabs-mount"></div>
-          <div id="variant-mount"></div>
-          <div id="score-mount"></div>
-        </header>
-
-        <div class="sidebar-scroll" id="sidebar-scroll">
-          <p class="loading">Loading the Hawaiʻi demo…</p>
-        </div>
-      </aside>
-
-      <button
-        id="sidebar-toggle"
-        class="sidebar-toggle"
-        type="button"
-        aria-controls="sidebar"
-        aria-expanded="true"
-      >
-        <span class="sidebar-toggle-glyph" aria-hidden="true">‹</span>
-        <span class="visually-hidden">Collapse the audit panel</span>
-      </button>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -34,10 +34,10 @@ import {
   type VisionMode,
 } from '@carto-a11y/core';
 
-import { disclosure, download, el } from './dom.js';
+import { download, el } from './dom.js';
 
 /** How many clashes the panel shows before asking to be expanded. */
-export const CLASHES_SHOWN = 6;
+export const CLASHES_SHOWN = 5;
 
 /**
  * Caps for a geological map, which has a hundred classes and a thousand
@@ -472,27 +472,20 @@ export function downloadsPanel(options: DownloadsOptions): HTMLElement {
 }
 
 /* ------------------------------------------------------------------ *
- * How it works, and About
+ * How it works, and the closing note
  * ------------------------------------------------------------------ */
 
 /**
- * Three lines on what the tool is doing, for a reader who has just arrived.
+ * The last thing in the panel: who this is actually for.
  *
- * Folded away, because it is read once and never again.
+ * Everything above it is about a palette. This is the reason the palette
+ * matters, and it is the one line worth leaving open rather than folded away.
  */
-export function howItWorksPanel(): HTMLElement {
-  const list = el('ul', 'steps');
-  for (const step of [
-    'We check every pair of colours on the map',
-    'We simulate three types of colour blindness',
-    'Colours that become too similar are flagged as clashes',
-  ]) {
-    list.append(el('li', undefined, step));
-  }
-  return disclosure('How it works', list);
-}
-
-export function aboutPanel(): HTMLElement {
-
-  return disclosure('About', el('p', 'about-text', ABOUT_TEXT));
+export function funFactPanel(): HTMLElement {
+  const section = el('section', 'panel fact');
+  section.append(el('p', 'fact-label', 'Did you know?'));
+  section.append(
+    el('p', 'fact-text', `${ABOUT_TEXT} That is roughly 300 million people worldwide.`),
+  );
+  return section;
 }

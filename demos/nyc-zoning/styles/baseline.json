@@ -1,0 +1,95 @@
+{
+  "version": 8,
+  "name": "Manhattan zoning — baseline",
+  "metadata": {
+    "carto-a11y:purpose": "New York City zoning districts for Manhattan, drawn in the colour families a zoning map has conventionally used: a ramp per family, by intensity of use.",
+    "carto-a11y:source": "NYC Department of City Planning"
+  },
+  "sources": {
+    "basemap": {
+      "type": "raster",
+      "tiles": [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+      ],
+      "tileSize": 256,
+      "maxzoom": 16,
+      "attribution": "Esri, HERE, Garmin, © OpenStreetMap contributors"
+    },
+    "zones": {
+      "type": "geojson",
+      "data": "../data/zones.geojson",
+      "attribution": "NYC Department of City Planning"
+    }
+  },
+  "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+  "center": [
+    -73.97,
+    40.78
+  ],
+  "zoom": 12,
+  "layers": [
+    {
+      "id": "backdrop",
+      "type": "background",
+      "paint": {
+        "background-color": "#f2efe9"
+      }
+    },
+    {
+      "id": "basemap",
+      "type": "raster",
+      "source": "basemap",
+      "paint": {
+        "raster-opacity": 0.9
+      }
+    },
+    {
+      "id": "zoning-districts",
+      "type": "fill",
+      "source": "zones",
+      "paint": {
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "Category"
+          ],
+          "R3-R5",
+          "#fff07f",
+          "R6-R7",
+          "#ffd42a",
+          "R8-R10",
+          "#ffaa00",
+          "C1-C2",
+          "#ff9e9e",
+          "C3-C6",
+          "#ec1c24",
+          "C7-C8",
+          "#a3151b",
+          "M1",
+          "#d9b3e6",
+          "M2-M3",
+          "#8b3fa8",
+          "MX",
+          "#b87fd0",
+          "PARK",
+          "#a3d977",
+          "BPC",
+          "#4fb3a5",
+          "#cccccc"
+        ],
+        "fill-opacity": 0.85
+      }
+    },
+    {
+      "id": "district-outlines",
+      "type": "line",
+      "source": "zones",
+      "paint": {
+        "line-color": "#6b6b6b",
+        "line-width": 0.4,
+        "line-opacity": 0.55
+      }
+    }
+  ]
+}

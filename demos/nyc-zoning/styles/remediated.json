@@ -1,0 +1,96 @@
+{
+  "version": 8,
+  "name": "Manhattan zoning — accessible",
+  "metadata": {
+    "carto-a11y:purpose": "The after picture. Same layers, same data, same labels as baseline.json; only the colours differ. The palette is spread evenly through lightness instead of relying on hue, which is the part of colour that dichromacy takes away.",
+    "carto-a11y:generatedBy": "scripts/remediate-demo.ts",
+    "carto-a11y:derivedFrom": "baseline.json"
+  },
+  "sources": {
+    "basemap": {
+      "type": "raster",
+      "tiles": [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+      ],
+      "tileSize": 256,
+      "maxzoom": 16,
+      "attribution": "Esri, HERE, Garmin, © OpenStreetMap contributors"
+    },
+    "zones": {
+      "type": "geojson",
+      "data": "../data/zones.geojson",
+      "attribution": "NYC Department of City Planning"
+    }
+  },
+  "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+  "center": [
+    -73.97,
+    40.78
+  ],
+  "zoom": 12,
+  "layers": [
+    {
+      "id": "backdrop",
+      "type": "background",
+      "paint": {
+        "background-color": "#f2efe9"
+      }
+    },
+    {
+      "id": "basemap",
+      "type": "raster",
+      "source": "basemap",
+      "paint": {
+        "raster-opacity": 0.9
+      }
+    },
+    {
+      "id": "zoning-districts",
+      "type": "fill",
+      "source": "zones",
+      "paint": {
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "Category"
+          ],
+          "R3-R5",
+          "#aae57f",
+          "R6-R7",
+          "#ecc309",
+          "R8-R10",
+          "#518dff",
+          "C1-C2",
+          "#b8734e",
+          "C3-C6",
+          "#8f4e00",
+          "C7-C8",
+          "#7d000e",
+          "M1",
+          "#b691c2",
+          "M2-M3",
+          "#6d228b",
+          "MX",
+          "#8b55a2",
+          "PARK",
+          "#35c185",
+          "BPC",
+          "#697e47",
+          "#b9b9b9"
+        ],
+        "fill-opacity": 0.85
+      }
+    },
+    {
+      "id": "district-outlines",
+      "type": "line",
+      "source": "zones",
+      "paint": {
+        "line-color": "#525252",
+        "line-width": 0.4,
+        "line-opacity": 0.55
+      }
+    }
+  ]
+}

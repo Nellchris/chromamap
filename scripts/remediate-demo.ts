@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Write `demos/hawaii/styles/remediated.json`: the baseline style with an
- * accessible palette in place of its traditional one.
+ * Write a demo's `styles/remediated.json`: its baseline style with an
+ * accessible palette in place of the traditional one.
  *
  * Run it with Node 24 or newer, which strips the types itself:
  *
- *     node scripts/remediate-hawaii.ts        # or: pnpm demo:remediate
+ *     node scripts/remediate-demo.ts hawaii       # or: pnpm demo:remediate
+ *     node scripts/remediate-demo.ts nyc-zoning
  *
  * The colours come from `generateAccessiblePalette`, which spreads the classes
  * evenly through lightness rather than relying on hue. Everything else about
@@ -29,8 +30,11 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..');
-const BASELINE = join(REPO_ROOT, 'demos', 'hawaii', 'styles', 'baseline.json');
-const OUTPUT = join(REPO_ROOT, 'demos', 'hawaii', 'styles', 'remediated.json');
+
+/** Which demo under `demos/` to repalette. */
+const DEMO = process.argv[2] ?? 'hawaii';
+const BASELINE = join(REPO_ROOT, 'demos', DEMO, 'styles', 'baseline.json');
+const OUTPUT = join(REPO_ROOT, 'demos', DEMO, 'styles', 'remediated.json');
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -67,13 +71,17 @@ if (applied.missing.length > 0) {
 }
 const remediated = applied.style;
 if (isRecord(remediated)) {
-  remediated['name'] = 'Hawaiʻi geological map — accessible';
+  const baselineName = isRecord(baseline) ? baseline['name'] : undefined;
+  remediated['name'] =
+    typeof baselineName === 'string'
+      ? baselineName.replace(/\s*—\s*baseline$/, '') + ' — accessible'
+      : `${DEMO} — accessible`;
   remediated['metadata'] = {
     'carto-a11y:purpose':
       'The after picture. Same layers, same data, same labels as baseline.json; only ' +
       'the colours differ. The palette is spread evenly through lightness instead of ' +
       'relying on hue, which is the part of colour that dichromacy takes away.',
-    'carto-a11y:generatedBy': 'scripts/remediate-hawaii.ts',
+    'carto-a11y:generatedBy': 'scripts/remediate-demo.ts',
     'carto-a11y:derivedFrom': 'baseline.json',
   };
 }

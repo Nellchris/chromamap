@@ -15,7 +15,9 @@
     "lint": "tsc -p scripts/tsconfig.json && pnpm -r run lint",
     "dev": "pnpm --filter @carto-a11y/web run dev",
     "demo:data": "node --max-old-space-size=4096 scripts/process-hawaii.ts",
-    "demo:remediate": "node scripts/remediate-hawaii.ts",
+    "demo:nyc": "node scripts/process-nyc-zoning.ts",
+    "demo:remediate": "node scripts/remediate-demo.ts hawaii",
+    "demo:remediate:nyc": "node scripts/remediate-demo.ts nyc-zoning",
     "clean": "pnpm -r exec node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {

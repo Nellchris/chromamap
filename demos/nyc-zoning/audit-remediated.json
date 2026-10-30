@@ -1,0 +1,204 @@
+{
+  "timestamp": "2026-10-30T23:30:45.246Z",
+  "styleSource": "demos/nyc-zoning/styles/remediated.json",
+  "options": {
+    "background": [
+      1,
+      1,
+      1
+    ],
+    "threshold": 10,
+    "modes": [
+      "normal",
+      "protan",
+      "deutan",
+      "tritan"
+    ]
+  },
+  "summary": {
+    "total": 312,
+    "failing": 6,
+    "byMode": {
+      "normal": 1,
+      "protan": 2,
+      "deutan": 2,
+      "tritan": 1
+    }
+  },
+  "classes": [
+    {
+      "id": "zoning-districts/R3-R5",
+      "color": [
+        0.6666666666666666,
+        0.8980392156862745,
+        0.4980392156862745
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "zoning-districts/R6-R7",
+      "color": [
+        0.9254901960784314,
+        0.7647058823529411,
+        0.03529411764705882
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "zoning-districts/R8-R10",
+      "color": [
+        0.3176470588235294,
+        0.5529411764705883,
+        1
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "zoning-districts/C1-C2",
+      "color": [
+        0.7215686274509804,
+        0.45098039215686275,
+        0.3058823529411765
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "zoning-districts/C3-C6",
+      "color": [
+        0.5607843137254902,
+        0.3058823529411765,
+        0
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "zoning-districts/C7-C8",
+      "color": [
+        0.49019607843137253,
+        0,
+        0.054901960784313725
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "zoning-districts/M1",
+      "color": [
+        0.7137254901960784,
+        0.5686274509803921,
+        0.7607843137254902
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "zoning-districts/M2-M3",
+      "color": [
+        0.42745098039215684,
+        0.13333333333333333,
+        0.5450980392156862
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "zoning-districts/MX",
+      "color": [
+        0.5450980392156862,
+        0.3333333333333333,
+        0.6352941176470588
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "zoning-districts/PARK",
+      "color": [
+        0.20784313725490197,
+        0.7568627450980392,
+        0.5215686274509804
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "zoning-districts/BPC",
+      "color": [
+        0.4117647058823529,
+        0.49411764705882355,
+        0.2784313725490196
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "zoning-districts/default",
+      "color": [
+        0.7254901960784313,
+        0.7254901960784313,
+        0.7254901960784313
+      ],
+      "type": "fill",
+      "opacity": 0.85
+    },
+    {
+      "id": "district-outlines",
+      "color": [
+        0.3215686274509804,
+        0.3215686274509804,
+        0.3215686274509804
+      ],
+      "type": "line",
+      "opacity": 0.55
+    }
+  ],
+  "clashes": [
+    {
+      "classA": "zoning-districts/C1-C2",
+      "classB": "zoning-districts/BPC",
+      "mode": "protan",
+      "dE": 1.4563439210408657,
+      "contrast": 1.0295213839284387
+    },
+    {
+      "classA": "zoning-districts/C1-C2",
+      "classB": "zoning-districts/BPC",
+      "mode": "deutan",
+      "dE": 5.909695558888734,
+      "contrast": 1.217908256576666
+    },
+    {
+      "classA": "zoning-districts/default",
+      "classB": "district-outlines",
+      "mode": "protan",
+      "dE": 9.902489624875859,
+      "contrast": 1.49414662934144
+    },
+    {
+      "classA": "zoning-districts/default",
+      "classB": "district-outlines",
+      "mode": "normal",
+      "dE": 9.902489635804839,
+      "contrast": 1.4941466162358987
+    },
+    {
+      "classA": "zoning-districts/default",
+      "classB": "district-outlines",
+      "mode": "tritan",
+      "dE": 9.902489635804839,
+      "contrast": 1.4941466162358987
+    },
+    {
+      "classA": "zoning-districts/default",
+      "classB": "district-outlines",
+      "mode": "deutan",
+      "dE": 9.902489668857482,
+      "contrast": 1.4941465765986943
+    }
+  ]
+}

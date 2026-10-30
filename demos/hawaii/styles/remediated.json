@@ -3,7 +3,7 @@
   "name": "Hawaiʻi geological map — accessible",
   "metadata": {
     "carto-a11y:purpose": "The after picture. Same layers, same data, same labels as baseline.json; only the colours differ. The palette is spread evenly through lightness instead of relying on hue, which is the part of colour that dichromacy takes away.",
-    "carto-a11y:generatedBy": "scripts/remediate-hawaii.ts",
+    "carto-a11y:generatedBy": "scripts/remediate-demo.ts",
     "carto-a11y:derivedFrom": "baseline.json"
   },
   "center": [

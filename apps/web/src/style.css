@@ -95,9 +95,6 @@ button {
  * ------------------------------------------------------------------ */
 
 .app {
-  display: flex;
-  height: 100vh;
-  height: 100dvh;
   position: relative;
 }
 
@@ -176,21 +173,6 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.brand-name {
-  margin: 0;
-  font-size: 14.5px;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-}
-
-.brand-tagline {
-  margin: 3px 0 0;
-  font-size: 12.5px;
-  font-weight: 400;
-  line-height: 1.4;
-  color: var(--ink-2);
 }
 
 .sidebar-scroll {
@@ -635,13 +617,6 @@ button {
   font-size: 10.5px;
 }
 
-.about-text {
-  margin: 0;
-  font-size: 11.5px;
-  color: var(--ink-3);
-  line-height: 1.55;
-}
-
 /* The CVD filters live here but must never be visible. */
 .filter-defs {
   position: absolute;
@@ -1002,18 +977,6 @@ details[open] > .disclosure-summary::before {
  * told apart at a glance.
  * ------------------------------------------------------------------ */
 
-.variant.tabs {
-  border-radius: var(--radius-sm);
-  padding: 3px;
-  gap: 3px;
-}
-
-.variant.tabs .variant-option {
-  border-radius: calc(var(--radius-sm) - 2px);
-  padding: 7px 10px;
-  font-size: 12px;
-}
-
 /* ------------------------------------------------------------------ *
  * The cover: what stands in front of the map in "Your Map" mode
  *
@@ -1107,12 +1070,6 @@ details[open] > .disclosure-summary::before {
   outline-offset: 2px;
 }
 
-.drop-example {
-  display: block;
-  margin: 12px auto 0;
-  text-align: center;
-}
-
 .drop-error {
   margin: 18px 0 0;
   padding: 10px 12px;
@@ -1121,12 +1078,6 @@ details[open] > .disclosure-summary::before {
   color: var(--bad);
   font-size: 12.5px;
   text-align: left;
-}
-
-.drop-privacy {
-  margin: 18px 0 0;
-  font-size: 11.5px;
-  color: var(--ink-3);
 }
 
 /* ---- the grid's own header ---- */
@@ -1317,31 +1268,6 @@ details[open] > .disclosure-summary::before {
  * Call to action, and the uploaded file's own card
  * ------------------------------------------------------------------ */
 
-.cta {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.cta-text {
-  margin: 0 0 12px;
-  font-size: 12.5px;
-  color: var(--ink-2);
-  line-height: 1.55;
-}
-
-.cta-button {
-  width: 100%;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: #fff;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--ease);
-}
-
 .cta-button:hover {
   background: var(--accent-bright);
 }
@@ -1406,16 +1332,6 @@ details[open] > .disclosure-summary::before {
 }
 
 /* "How it works": three lines, once. */
-.steps {
-  margin: 0;
-  padding: 0 0 0 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 12.5px;
-  color: var(--ink-2);
-}
-
 /*
  * The before/after switch.
  *
@@ -1605,21 +1521,308 @@ details[open] > .disclosure-summary::before {
  * Sample styles in the drop zone
  * ------------------------------------------------------------------ */
 
-.drop-samples {
-  margin: 14px 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: baseline;
-  gap: 4px 12px;
+
+/* ------------------------------------------------------------------ *
+ * Two screens
+ *
+ * The landing page and the audit view are sections of one document, shown
+ * one at a time. The app shell stops being a flex row when the landing page
+ * is up, so the page can simply scroll.
+ * ------------------------------------------------------------------ */
+
+.app[data-view='landing'] {
+  display: block;
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-y: auto;
 }
 
-.drop-samples-label {
+body:has(.app[data-view='landing']) {
+  overflow: auto;
+}
+
+.landing[hidden],
+.audit[hidden] {
+  display: none;
+}
+
+.audit {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  position: relative;
+}
+
+.landing-inner {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 56px 24px 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+/* ---- header ---- */
+
+.landing-brand {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.landing-tagline {
+  margin: 8px 0 0;
+  font-size: 34px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  max-width: 18ch;
+}
+
+/* ------------------------------------------------------------------ *
+ * Hero: the problem, shown rather than described
+ * ------------------------------------------------------------------ */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 32px;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+}
+
+.hero-strips {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hero-row-label {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-3);
+}
+
+/* Two pixels of surface between chips: the point of the second row is that
+   two of its colours have collapsed, and they must still read as two. */
+.hero-chips {
+  display: flex;
+  gap: 2px;
+}
+
+.hero-chip {
+  flex: 1;
+  height: 42px;
+  border-radius: 5px;
+  box-shadow: var(--swatch-edge);
+}
+
+.hero-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hero-point {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.hero-glyph {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ------------------------------------------------------------------ *
+ * The main action
+ * ------------------------------------------------------------------ */
+
+.landing-upload .drop-zone {
+  width: 100%;
+  padding: 40px 28px;
+}
+
+.landing-section-title {
+  margin: 0 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+
+/* ---- demo cards ---- */
+
+.demo-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.demo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: border-color var(--ease), box-shadow var(--ease), transform var(--ease);
+}
+
+.demo-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-float);
+  transform: translateY(-1px);
+}
+
+.demo-strip {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.demo-chip {
+  flex: 1;
+  height: 34px;
+  border-radius: 4px;
+  box-shadow: var(--swatch-edge);
+}
+
+.demo-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.demo-blurb {
   font-size: 12px;
   color: var(--ink-3);
 }
 
-.drop-samples .link-button {
+/* ---- footer ---- */
+
+.landing-foot {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.landing-foot p {
   margin: 0;
-  padding: 0;
+}
+
+.landing-foot-note {
+  margin-top: 4px !important;
+  max-width: 62ch;
+}
+
+/* ------------------------------------------------------------------ *
+ * Back to the landing page
+ * ------------------------------------------------------------------ */
+
+.back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  text-decoration: none;
+  padding: 2px 0;
+  transition: color var(--ease);
+}
+
+.back:hover {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ *
+ * The closing note in the audit panel
+ * ------------------------------------------------------------------ */
+
+.fact {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.fact-label {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--accent);
+}
+
+.fact-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+/* While an uploaded style is still being read there is nothing to cover the
+   map area with, but the map behind it belongs to a demo. */
+.cover-wait {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+/* ------------------------------------------------------------------ *
+ * Narrow screens
+ * ------------------------------------------------------------------ */
+
+@media (max-width: 760px) {
+  .landing-inner {
+    padding: 32px 16px 48px;
+    gap: 28px;
+  }
+
+  .landing-tagline {
+    font-size: 26px;
+    max-width: none;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 18px;
+  }
+
+  .landing-upload .drop-zone {
+    padding: 28px 18px;
+  }
 }
