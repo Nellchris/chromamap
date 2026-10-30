@@ -26,6 +26,19 @@ export const VISION_MODE_AUDIENCE: Record<VisionMode, string> = {
   tritan: 'blue-yellow blind viewers',
 };
 
+/**
+ * The bare name of a mode, with the clinical term left out.
+ *
+ * What a switch in the app is labelled with. "Protanopia" is the right word
+ * for a report and the wrong one for a control a map author meets once.
+ */
+export const VISION_MODE_PLAIN: Record<VisionMode, string> = {
+  normal: 'Normal',
+  protan: 'Red-Blind',
+  deutan: 'Green-Blind',
+  tritan: 'Blue-Blind',
+};
+
 /** The short form used in a count: "Red-blind viewers (40 clashes)". */
 export const VISION_MODE_SHORT: Record<VisionMode, string> = {
   normal: 'Normal vision',
@@ -40,11 +53,24 @@ export const ABOUT_TEXT =
   'with colour vision deficiency (colour blindness). About 8% of men and ' +
   '0.5% of women are affected.';
 
+/** What the tool is called, wherever it has to name itself. */
+export const TOOL_NAME = 'CartoAccessibility Studio';
+
+/** The version a report stamps itself with. Tracks the workspace version. */
+export const TOOL_VERSION = '0.0.0';
+
 /** Traffic-light verdict for a whole style. */
 export type VerdictLevel = 'accessible' | 'some-issues' | 'needs-attention';
 
-/** Above this many clashes a style is called "needs attention". */
-const NEEDS_ATTENTION_FROM = 11;
+/**
+ * Above this many clashes a style is called "needs attention".
+ *
+ * Amber covers one to fifty: a palette with a handful of collisions is worth
+ * fixing but is not in trouble, and a map author who sees red for two clashes
+ * learns to ignore the colour. Past fifty the problem is the palette, not a
+ * pair of colours in it.
+ */
+const NEEDS_ATTENTION_FROM = 51;
 
 /** A whole audit, said in plain words. */
 export interface PlainSummary {
@@ -74,6 +100,18 @@ export interface PlainSummary {
 
 function plural(count: number, one: string, many: string): string {
   return count === 1 ? one : many;
+}
+
+/**
+ * A count with thousands separated: a geological map's 1,295 clashes.
+ *
+ * Fixed to en-US rather than the host's locale so a report says the same thing
+ * wherever it is generated and whoever opens it.
+ */
+const GROUPED = new Intl.NumberFormat('en-US');
+
+export function formatCount(count: number): string {
+  return GROUPED.format(count);
 }
 
 /**
@@ -118,17 +156,17 @@ export function summariseAudit(
   const headline =
     clashes === 0
       ? 'No colour clashes found'
-      : `${String(clashes)} colour ${plural(clashes, 'clash', 'clashes')} found`;
+      : `${formatCount(clashes)} colour ${plural(clashes, 'clash', 'clashes')} found`;
 
   const detail =
     clashes === 0
       ? `All ${String(classes.length)} map ${plural(classes.length, 'colour stays', 'colours stay')} distinguishable for people with colour vision deficiency`
-      : `${String(clashedColours.size)} of ${String(classes.length)} map colours become confusable for people with colour vision deficiency`;
+      : `${formatCount(clashedColours.size)} of ${formatCount(classes.length)} map colours become confusable for people with colour vision deficiency`;
 
   const worstLine =
     worstMode === undefined
       ? undefined
-      : `Worst problems: ${VISION_MODE_SHORT[worstMode]} (${String(worstModeClashes)} ${plural(worstModeClashes, 'clash', 'clashes')})`;
+      : `Worst problems: ${VISION_MODE_SHORT[worstMode]} (${formatCount(worstModeClashes)} ${plural(worstModeClashes, 'clash', 'clashes')})`;
 
   return {
     level,
@@ -183,6 +221,19 @@ export function humaniseClassId(id: string | MapClass): string {
     return `${pretty(layer)} (everything else)`;
   }
   return value;
+}
+
+/**
+ * Why a pair is on the list, in the fewest words that still say something.
+ *
+ * "worst under red-blind vision" - the mode where the two colours are closest.
+ * A pair whose worst mode is normal vision has nothing to do with colour
+ * blindness at all: the style gives two classes the same colour.
+ */
+export function worstModeNote(mode: VisionMode): string {
+  return mode === 'normal'
+    ? 'already the same before colour blindness'
+    : `worst under ${VISION_MODE_PLAIN[mode].toLowerCase()} vision`;
 }
 
 /** "“A” and “B” look the same to red-blind viewers". */

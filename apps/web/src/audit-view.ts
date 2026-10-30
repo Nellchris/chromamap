@@ -13,27 +13,31 @@
 
 import {
   ABOUT_TEXT,
-  DEFAULT_THRESHOLD,
   VISION_MODES,
-  VISION_MODE_LABELS,
-  VISION_MODE_SHORT,
+  VISION_MODE_PLAIN,
   compositeOver,
+  formatCount,
+  generateHtmlReport,
   humaniseClassId,
   rgbToHex,
   runAudit,
   simulateCVD,
   summariseAudit,
+  worstModeNote,
   type AuditPair,
   type AuditResult,
   type MapClass,
+  type PlainSummary,
   type RGB,
+  type ReportData,
+  type RemediationResult,
   type VisionMode,
 } from '@carto-a11y/core';
 
-import { disclosure, el, swatch } from './dom.js';
+import { disclosure, download, el } from './dom.js';
 
 /** How many clashes the panel shows before asking to be expanded. */
-export const CLASHES_SHOWN = 5;
+export const CLASHES_SHOWN = 6;
 
 /**
  * Caps for a geological map, which has a hundred classes and a thousand
@@ -41,7 +45,6 @@ export const CLASHES_SHOWN = 5;
  * nobody reads the thousandth card anyway.
  */
 export const CLASHES_MAX = 100;
-const TECHNICAL_ROWS_MAX = 200;
 
 /**
  * What one mode of the app hands the shell to render.
@@ -117,26 +120,92 @@ export function clashPartners(audit: AuditResult): Map<string, Set<string>> {
  * ------------------------------------------------------------------ */
 
 /**
- * The score: headline first, the explanation only if asked for.
+ * The ring beside the number: how much of the palette is caught up in a clash.
+ *
+ * A count on its own does not say whether 40 clashes is most of the map or a
+ * corner of it. The ring does, at a glance, and it is drawn from the same
+ * figures the sentence below it uses.
+ */
+function donut(summary: PlainSummary): SVGSVGElement {
+  const RADIUS = 26;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  const share =
+    summary.totalColours === 0 ? 0 : summary.confusableColours / summary.totalColours;
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'donut');
+  svg.setAttribute('viewBox', '0 0 64 64');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute(
+    'aria-label',
+    summary.totalColours === 0
+      ? 'No colours to check'
+      : `${formatCount(summary.confusableColours)} of ${formatCount(summary.totalColours)} colours are caught up in a clash`,
+  );
+
+  for (const [cls, length] of [
+    ['donut-track', CIRCUMFERENCE],
+    ['donut-arc', share * CIRCUMFERENCE],
+  ] as const) {
+    const circle = document.createElementNS(ns, 'circle');
+    circle.setAttribute('class', cls);
+    circle.setAttribute('cx', '32');
+    circle.setAttribute('cy', '32');
+    circle.setAttribute('r', String(RADIUS));
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke-width', '9');
+    circle.setAttribute('stroke-linecap', 'round');
+    if (cls === 'donut-arc') {
+      circle.setAttribute('stroke-dasharray', `${String(length)} ${String(CIRCUMFERENCE)}`);
+      circle.setAttribute('transform', 'rotate(-90 32 32)');
+    }
+    svg.append(circle);
+  }
+  return svg;
+}
+
+/**
+ * The score: a ring, a number, and one sentence saying what the number counts.
+ *
+ * Nothing else. ΔE figures, contrast ratios, thresholds and the methodology
+ * behind them live in the downloadable report, where a reader who wants them
+ * has gone looking; a map author opening the panel wants to know whether their
+ * map works and what to fix.
  *
  * @param view - The palette being scored.
- * @param comparedTo - The version this one improves on, when there is one; its
- *   clash count becomes the "Down from N" line.
+ * @param comparedTo - The version this one improves on, when there is one.
  */
 export function scoreCard(view: AuditView, comparedTo?: AuditView): HTMLElement {
   const summary = summariseAudit(view.classes, view.audit);
   const card = el('section', `score score-${summary.level}`);
   card.setAttribute('aria-label', 'Map accessibility score');
 
-  const label = el('p', 'score-label');
+  const head = el('div', 'score-head');
+  head.append(donut(summary));
+
+  const text = el('div', 'score-text');
+  const headline = el('p', 'score-headline');
+  headline.append(
+    el('span', 'score-number', formatCount(summary.clashes)),
+    el(
+      'span',
+      'score-unit',
+      summary.clashes === 1 ? 'colour clash' : 'colour clashes',
+    ),
+  );
+  text.append(headline);
+
+  // The traffic light is a colour, and this of all tools cannot let a colour
+  // carry a meaning on its own: the glyph and the word say it too.
+  const verdict = el('p', 'score-verdict');
   const dot = el('span', 'score-dot', summary.indicator);
   dot.setAttribute('aria-hidden', 'true');
-  label.append(dot, el('span', undefined, summary.label));
+  verdict.append(dot, el('span', undefined, summary.label));
+  text.append(verdict);
+  head.append(text);
+  card.append(head);
 
-  card.append(label, el('p', 'score-headline', summary.headline));
-
-  // One line, never folded away: the number above means nothing to a reader
-  // who has not been told what a clash is.
   card.append(
     el(
       'p',
@@ -150,25 +219,10 @@ export function scoreCard(view: AuditView, comparedTo?: AuditView): HTMLElement 
   if (comparedTo !== undefined) {
     const was = summariseAudit(comparedTo.classes, comparedTo.audit).clashes;
     if (was > summary.clashes) {
-      card.append(el('p', 'score-change', `Down from ${String(was)}`));
+      card.append(el('p', 'score-change', `Down from ${formatCount(was)}`));
     }
   }
 
-  // Everything that explains the number, folded away.
-  const details = el('details', 'score-more');
-  details.append(el('summary', 'score-more-summary', 'What does this mean?'));
-  details.append(el('p', 'score-detail', summary.detail));
-  if (summary.worstLine !== undefined) {
-    details.append(el('p', 'score-worst', summary.worstLine));
-  }
-  details.append(
-    el(
-      'p',
-      'score-detail',
-      'Two map colours clash when a reader cannot tell them apart. The fewer, the better.',
-    ),
-  );
-  card.append(details);
   return card;
 }
 
@@ -197,7 +251,7 @@ export function visionPanel(
     input.addEventListener('change', () => {
       onMode(option);
     });
-    label.append(input, el('span', undefined, VISION_MODE_LABELS[option]));
+    label.append(input, el('span', undefined, VISION_MODE_PLAIN[option]));
     group.append(label);
   }
 
@@ -219,7 +273,15 @@ export interface ClashPanelOptions {
   onToggleAll: () => void;
 }
 
-/** The clashes: big swatches, short names, a distance. */
+/**
+ * The clashes, as paint chips.
+ *
+ * Two big swatches of the colours *as that reader sees them*, side by side, so
+ * the card shows the problem rather than asserting it; then the two names; then
+ * one short line saying which kind of vision it is worst for. No distance, no
+ * hex, no ratio - a map author cannot act on 4.2 ΔE00, and the report carries
+ * it for anyone who can.
+ */
 export function clashPanel(options: ClashPanelOptions): HTMLElement {
   const { view } = options;
   const section = el('section', 'panel');
@@ -227,7 +289,7 @@ export function clashPanel(options: ClashPanelOptions): HTMLElement {
 
   const heading = el('h2', 'panel-title', 'Worst clashes');
   if (clashes.length > 0) {
-    heading.append(el('span', 'panel-count is-bad', String(clashes.length)));
+    heading.append(el('span', 'panel-count is-bad', formatCount(clashes.length)));
   }
   section.append(heading);
 
@@ -243,28 +305,29 @@ export function clashPanel(options: ClashPanelOptions): HTMLElement {
     const card = el('button', `clash${options.activePair === pair ? ' is-active' : ''}`);
     card.type = 'button';
 
-    const nameA = humaniseClassId(pair.classA);
-    const nameB = humaniseClassId(pair.classB);
-    card.title = `${nameA} ↔ ${nameB} — ${VISION_MODE_LABELS[pair.mode]}`;
+    const nameA = options.label(pair.classA);
+    const nameB = options.label(pair.classB);
+    card.title = `${nameA} and ${nameB}: ${worstModeNote(pair.mode)}`;
 
-    const colours = el('div', 'clash-colours');
-    colours.append(
-      swatch(seenColor(pair.classA, view.background, pair.mode), nameA),
-      swatch(seenColor(pair.classB, view.background, pair.mode), nameB),
+    const chips = el('span', 'chips');
+    for (const [cls, name] of [
+      [pair.classA, nameA],
+      [pair.classB, nameB],
+    ] as const) {
+      const chip = el('span', 'chip');
+      chip.style.background = rgbToHex(seenColor(cls, view.background, pair.mode));
+      chip.title = name;
+      chips.append(chip);
+    }
+
+    const names = el('span', 'clash-names');
+    names.append(
+      el('span', 'clash-name', nameA),
+      el('span', 'clash-swap', '↔'),
+      el('span', 'clash-name', nameB),
     );
 
-    const text = el('div', 'clash-labels');
-    text.append(
-      el('span', 'clash-name', options.label(pair.classA)),
-      el('span', 'clash-name', options.label(pair.classB)),
-      el(
-        'span',
-        'clash-meta',
-        `ΔE ${pair.dE.toFixed(1)} · ${VISION_MODE_SHORT[pair.mode].toLowerCase()}`,
-      ),
-    );
-
-    card.append(colours, text);
+    card.append(chips, names, el('span', 'clash-why', worstModeNote(pair.mode)));
     card.addEventListener('click', () => {
       options.onPair(pair);
     });
@@ -280,8 +343,8 @@ export function clashPanel(options: ClashPanelOptions): HTMLElement {
       options.showAll
         ? 'Show fewer'
         : clashes.length > CLASHES_MAX
-          ? `Show worst ${String(CLASHES_MAX)} of ${String(clashes.length)}`
-          : `Show all ${String(clashes.length)}`,
+          ? `Show worst ${formatCount(CLASHES_MAX)} of ${formatCount(clashes.length)}`
+          : `Show all ${formatCount(clashes.length)}`,
     );
     more.type = 'button';
     more.setAttribute('aria-expanded', String(options.showAll));
@@ -335,86 +398,82 @@ export function changedPanel(
 }
 
 /* ------------------------------------------------------------------ *
- * Technical details and About
+ * Downloads
+ *
+ * Where everything the panel no longer says has gone. The panel answers "does
+ * my map work, and what do I fix"; the report answers "how do you know", and
+ * is what a reviewer, a journal or a procurement officer asks for.
  * ------------------------------------------------------------------ */
 
-export function technicalPanel(
-  view: AuditView,
-  label: (cls: MapClass) => string,
-): HTMLElement {
-  const { audit } = view;
-  const body = el('div');
+/** The move from one palette to another, as the report wants it. */
+export function remediationOf(
+  before: AuditView,
+  after: AuditView,
+): RemediationResult[] {
+  const afterById = new Map(after.classes.map((cls) => [cls.id, cls] as const));
+  return before.classes.flatMap((cls) => {
+    const fixed = afterById.get(cls.id);
+    return fixed === undefined
+      ? []
+      : [{ classId: cls.id, original: cls.color, remediated: fixed.color }];
+  });
+}
 
-  body.append(
+/** `city.json` becomes `city-accessibility-report.html`. */
+function reportName(source: string): string {
+  const base = source.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9-]+/g, '-');
+  return `${base === '' ? 'map' : base}-accessibility-report.html`;
+}
+
+export interface DownloadsOptions {
+  /** What the report should call the style it audited. */
+  source: string;
+  /** The palette as authored. */
+  before: AuditView;
+  /** The accessible palette, once there is one. */
+  after: AuditView | undefined;
+  /** Buttons the mode adds of its own, such as the demo's GeoJSON. */
+  extra?: HTMLElement[];
+}
+
+export function downloadsPanel(options: DownloadsOptions): HTMLElement {
+  const section = el('section', 'panel');
+  section.append(el('h2', 'panel-title', 'Downloads'));
+
+  for (const button of options.extra ?? []) {
+    section.append(button);
+  }
+
+  const reportButton = el('button', 'secondary-button', 'Download technical report');
+  reportButton.type = 'button';
+  reportButton.addEventListener('click', () => {
+    const { before, after } = options;
+    const data: ReportData = {
+      timestamp: new Date().toISOString(),
+      styleSource: options.source,
+      classes: before.classes,
+      audit: before.audit,
+      options: { background: before.background },
+      ...(after === undefined
+        ? {}
+        : { remediation: remediationOf(before, after), remediatedAudit: after.audit }),
+    };
+    download(reportName(options.source), generateHtmlReport(data), 'text/html');
+  });
+  section.append(
+    reportButton,
     el(
       'p',
-      'note',
-      `${String(audit.summary.total)} checks: every pair of map colours under every vision ` +
-        `mode. A pair is reported when its CIEDE2000 distance (ΔE00) falls below ` +
-        `${String(DEFAULT_THRESHOLD)}, measured on colours composited over ` +
-        `${rgbToHex(view.background)}. Contrast is the WCAG 2.1 ratio. Dichromacy ` +
-        `simulation follows Machado, Oliveira and Fernandes (2009) at full severity.`,
+      'secondary-hint',
+      'Every measurement, the method behind it and the full clash table, as one HTML file.',
     ),
   );
-
-  const modes = el('table', 'data-table');
-  const modeHead = el('thead');
-  const modeHeadRow = el('tr');
-  modeHeadRow.append(el('th', undefined, 'Who is affected'), el('th', 'num', 'Clashes'));
-  modeHead.append(modeHeadRow);
-  const modeBody = el('tbody');
-  for (const mode of VISION_MODES) {
-    const row = el('tr');
-    row.append(
-      el('td', undefined, VISION_MODE_LABELS[mode]),
-      el('td', 'num', String(audit.summary.byMode[mode])),
-    );
-    modeBody.append(row);
-  }
-  modes.append(modeHead, modeBody);
-  body.append(el('p', 'technical-heading', 'By vision mode'), modes);
-
-  if (audit.failing.length > 0) {
-    const table = el('table', 'data-table');
-    const head = el('thead');
-    const headRow = el('tr');
-    headRow.append(
-      el('th', undefined, 'Pair'),
-      el('th', 'num', 'ΔE00'),
-      el('th', 'num', 'Contrast'),
-    );
-    head.append(headRow);
-    const tableBody = el('tbody');
-    const sorted = [...audit.failing].sort((a, b) => a.dE - b.dE);
-    for (const pair of sorted.slice(0, TECHNICAL_ROWS_MAX)) {
-      const row = el('tr');
-      const cell = el('td');
-      cell.append(
-        el('span', 'data-pair', `${label(pair.classA)} ↔ ${label(pair.classB)}`),
-        el('span', 'data-mode', VISION_MODE_LABELS[pair.mode]),
-      );
-      row.append(
-        cell,
-        el('td', 'num', pair.dE.toFixed(2)),
-        el('td', 'num', `${pair.contrast.toFixed(2)}:1`),
-      );
-      tableBody.append(row);
-    }
-    table.append(head, tableBody);
-    body.append(
-      el(
-        'p',
-        'technical-heading',
-        audit.failing.length > TECHNICAL_ROWS_MAX
-          ? `Closest ${String(TECHNICAL_ROWS_MAX)} of ${String(audit.failing.length)} clashes`
-          : `Every clash (${String(audit.failing.length)})`,
-      ),
-      table,
-    );
-  }
-
-  return disclosure('Technical details', body);
+  return section;
 }
+
+/* ------------------------------------------------------------------ *
+ * How it works, and About
+ * ------------------------------------------------------------------ */
 
 /**
  * Three lines on what the tool is doing, for a reader who has just arrived.
@@ -434,5 +493,6 @@ export function howItWorksPanel(): HTMLElement {
 }
 
 export function aboutPanel(): HTMLElement {
+
   return disclosure('About', el('p', 'about-text', ABOUT_TEXT));
 }

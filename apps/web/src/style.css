@@ -400,50 +400,9 @@ button {
   color: var(--ink-3);
 }
 
-.score-label {
-  margin: 0 0 6px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-.score-accessible .score-label {
-  color: var(--good);
-}
-
-.score-some-issues .score-label {
-  color: var(--warn);
-}
-
-.score-needs-attention .score-label {
-  color: var(--bad);
-}
-
 .score-dot {
   font-size: 13px;
   line-height: 1;
-}
-
-.score-headline {
-  margin: 0 0 4px;
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.15;
-}
-
-.score-detail {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--ink-2);
-}
-
-.score-worst {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: var(--ink-3);
 }
 
 .score-change {
@@ -541,14 +500,6 @@ button {
 .clash.is-active {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
-}
-
-.clash-colours {
-  display: flex;
-  align-items: center;
-  /* 2px of surface between swatches: two colours that have collapsed must
-     still read as two, or the card hides what it is reporting. */
-  gap: 2px;
 }
 
 .link-button {
@@ -856,56 +807,9 @@ details[open] > .disclosure-summary::before {
 
 /* ---- the score's own disclosure ---- */
 
-.score-more {
-  margin-top: 10px;
-}
-
-.score-more-summary {
-  cursor: pointer;
-  list-style: none;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--ink-3);
-  transition: color var(--ease);
-}
-
-.score-more-summary::-webkit-details-marker {
-  display: none;
-}
-
-.score-more-summary:hover {
-  color: var(--ink);
-}
-
-.score-more[open] .score-more-summary {
-  margin-bottom: 6px;
-}
-
-.score-more .score-detail + .score-detail {
-  margin-top: 6px;
-}
-
 /* ------------------------------------------------------------------ *
  * Clash rows: swatches lead, text follows
  * ------------------------------------------------------------------ */
-
-.clash {
-  flex-direction: row;
-  align-items: center;
-  gap: 11px;
-}
-
-.clash-labels {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.clash-meta {
-  font-size: 11px;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
 
 /* ------------------------------------------------------------------ *
  * Export
@@ -1339,12 +1243,6 @@ details[open] > .disclosure-summary::before {
   overflow-wrap: anywhere;
 }
 
-.grid-meta {
-  font-size: 10.5px;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-
 /* ---- the four ways one colour can be seen ---- */
 
 .grid-sims {
@@ -1557,32 +1455,171 @@ details[open] > .disclosure-summary::before {
   color: var(--accent);
 }
 
+
 /* ------------------------------------------------------------------ *
- * Clash cards: a readable name per line
+ * The score: a ring, a number, a verdict, a sentence
+ *
+ * The ring says how much of the palette is caught up in a clash, which a
+ * count on its own cannot: forty clashes out of forty colours is a different
+ * map from forty out of four hundred.
+ * ------------------------------------------------------------------ */
+
+.score-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.donut {
+  width: 58px;
+  height: 58px;
+  flex: none;
+}
+
+.donut-track {
+  stroke: rgb(26 26 62 / 10%);
+}
+
+.donut-arc {
+  stroke: var(--ink-3);
+}
+
+.score-accessible .donut-arc {
+  stroke: var(--good);
+}
+
+.score-some-issues .donut-arc {
+  stroke: var(--warn);
+}
+
+.score-needs-attention .donut-arc {
+  stroke: var(--bad);
+}
+
+.score-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.score-headline {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.score-number {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-unit {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+/*
+ * The traffic light. A colour alone would be the one mistake this tool exists
+ * to find, so the glyph and the word carry it too.
+ */
+.score-verdict {
+  margin: 7px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.score-accessible .score-verdict {
+  color: var(--good);
+}
+
+.score-some-issues .score-verdict {
+  color: var(--warn);
+}
+
+.score-needs-attention .score-verdict {
+  color: var(--bad);
+}
+
+.score-plain {
+  margin: 12px 0 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * Clash cards: two paint chips, two names, one reason
  * ------------------------------------------------------------------ */
 
 .clash {
-  align-items: flex-start;
-}
-
-/* Stacked, so each colour sits beside the name it belongs to - and still
-   edge to edge, because two colours that have collapsed must read as two. */
-.clash-colours {
   flex-direction: column;
-  padding-top: 1px;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px;
 }
 
-.clash-labels {
+/* Edge to edge, with a hairline of surface between: two colours that have
+   collapsed must still read as two, or the card hides what it reports. */
+.chips {
+  display: flex;
   gap: 2px;
+  height: 46px;
 }
 
-.clash-name {
+.chip {
+  flex: 1;
+  min-width: 0;
+  border-radius: 5px;
+  box-shadow: var(--swatch-edge);
+}
+
+.clash-names {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
   font-size: 12px;
   font-weight: 500;
   line-height: 1.35;
+}
+
+.clash-name {
   overflow-wrap: anywhere;
 }
 
-.clash-meta {
-  margin-top: 2px;
+.clash-swap {
+  color: var(--ink-3);
+  flex: none;
+}
+
+.clash-why {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* ------------------------------------------------------------------ *
+ * Sample styles in the drop zone
+ * ------------------------------------------------------------------ */
+
+.drop-samples {
+  margin: 14px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.drop-samples-label {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.drop-samples .link-button {
+  margin: 0;
+  padding: 0;
 }

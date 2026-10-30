@@ -60,10 +60,15 @@ export {
 export type { PlainSummary, VerdictLevel } from './export/language.js';
 export {
   ABOUT_TEXT,
+  TOOL_NAME,
+  TOOL_VERSION,
   VISION_MODE_AUDIENCE,
   VISION_MODE_LABELS,
+  VISION_MODE_PLAIN,
   VISION_MODE_SHORT,
   clashSentence,
+  formatCount,
   humaniseClassId,
   summariseAudit,
+  worstModeNote,
 } from './export/language.js';

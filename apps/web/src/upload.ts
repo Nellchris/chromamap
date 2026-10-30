@@ -34,18 +34,28 @@ import {
   changedPanel,
   clashPanel,
   clashPartners,
+  downloadsPanel,
   scoreCard,
   seenColor,
-  technicalPanel,
   type AuditView,
   type ModeView,
 } from './audit-view.js';
 import { download, el, toggleButton } from './dom.js';
 import { VARIANTS } from './demo.js';
+// Bundled as text rather than fetched: a sample then behaves exactly like a
+// file a reader drops in, and works with the page open from disk.
+import nlcdSample from '../../../demos/samples/nlcd-landcover.json?raw';
+import zoningSample from '../../../demos/samples/urban-zoning.json?raw';
 import type { RemediateReply, RemediateRequest } from './remediate.worker.js';
 
 /** A style file big enough to be a mistake rather than a map. */
 const MAX_BYTES = 32 * 1024 * 1024;
+
+/** Styles a reader can try without having one of their own to hand. */
+const SAMPLES: ReadonlyArray<{ label: string; fileName: string; text: string }> = [
+  { label: 'Land Cover (NLCD)', fileName: 'nlcd-landcover.json', text: nlcdSample },
+  { label: 'Urban Zoning', fileName: 'urban-zoning.json', text: zoningSample },
+];
 
 /** The one-letter key under each simulated swatch. */
 const MODE_KEYS: Record<VisionMode, string> = {
@@ -371,6 +381,7 @@ export function createUpload(options: UploadOptions): Upload {
               reading: state.reading,
               error: state.error,
               onFile: openFile,
+              onSample: accept,
               onExample: loadExample,
             }),
           ],
@@ -402,14 +413,19 @@ export function createUpload(options: UploadOptions): Upload {
       }
       body.push(...errorPanels(state.error));
 
-      if (remediated !== undefined) {
-        if (state.variant === 'accessible') {
-          body.push(changedPanel(loaded.original, remediated.view, mode));
-        }
-        body.push(exportPanel(loaded, remediated));
+      if (remediated !== undefined && state.variant === 'accessible') {
+        body.push(changedPanel(loaded.original, remediated.view, mode));
       }
 
-      body.push(technicalPanel(view, humaniseClassId), aboutPanel());
+      body.push(
+        downloadsPanel({
+          source: loaded.fileName,
+          before: loaded.original,
+          after: remediated?.view,
+          extra: remediated === undefined ? [] : exportButtons(loaded, remediated),
+        }),
+        aboutPanel(),
+      );
 
       return {
         caption:
@@ -466,6 +482,8 @@ interface DropZoneOptions {
   reading: boolean;
   error: string | undefined;
   onFile: (file: File) => void;
+  /** Load one of the bundled sample styles, by name and text. */
+  onSample: (fileName: string, text: string) => void;
   onExample: () => void;
 }
 
@@ -506,10 +524,21 @@ function dropZone(options: DropZoneOptions): HTMLElement {
   picker.append(input, el('span', undefined, 'Choose a file…'));
   zone.append(picker);
 
-  const example = el('button', 'link-button drop-example', 'Or try the Hawaiʻi baseline');
+  const samples = el('p', 'drop-samples');
+  samples.append(el('span', 'drop-samples-label', 'Try a sample:'));
+  for (const sample of SAMPLES) {
+    const link = el('button', 'link-button', sample.label);
+    link.type = 'button';
+    link.addEventListener('click', () => {
+      options.onSample(sample.fileName, sample.text);
+    });
+    samples.append(link);
+  }
+  const example = el('button', 'link-button', 'Hawaiʻi baseline');
   example.type = 'button';
   example.addEventListener('click', options.onExample);
-  zone.append(example);
+  samples.append(example);
+  zone.append(samples);
 
   if (options.error !== undefined) {
     zone.append(el('p', 'drop-error', options.error));
@@ -651,8 +680,8 @@ function gridCard(
   const name = humaniseClassId(cls);
   card.title =
     clashes === 0
-      ? `${name} — ${rgbToHex(authored)}`
-      : `${name} — ${rgbToHex(authored)} — confusable with ${String(clashes)} other ${
+      ? name
+      : `${name} — confusable with ${String(clashes)} other ${
           clashes === 1 ? 'colour' : 'colours'
         }`;
 
@@ -662,13 +691,6 @@ function gridCard(
 
   const text = el('span', 'grid-card-text');
   text.append(el('span', 'grid-name', name));
-  text.append(
-    el(
-      'span',
-      'grid-meta',
-      `${rgbToHex(authored)} · ${cls.type}${cls.opacity < 1 ? ` · ${String(Math.round(cls.opacity * 100))}%` : ''}`,
-    ),
-  );
   card.append(text);
 
   const sims = el('span', 'grid-sims');
@@ -758,29 +780,25 @@ function filePanel(loaded: Loaded, view: AuditView, onReset: () => void): HTMLEl
   return section;
 }
 
-/** The reader's own style, recoloured, as a download. */
-function exportPanel(loaded: Loaded, remediated: Remediated): HTMLElement {
-  const section = el('section', 'panel');
-  section.append(el('h2', 'panel-title', 'Take it with you'));
-
-  const button = el('button', 'secondary-button', 'Download remediated style');
+/** The reader's own style, recoloured, for the shared Downloads card. */
+function exportButtons(loaded: Loaded, remediated: Remediated): HTMLElement[] {
+  const button = el('button', 'secondary-button', 'Download fixed style');
   button.type = 'button';
   button.addEventListener('click', () => {
     download(
       remediatedName(loaded.fileName),
-      `${JSON.stringify(remediated.style, null, 2)}\n`,
+      JSON.stringify(remediated.style, null, 2) + '\n',
       'application/json',
     );
   });
-  section.append(
+  return [
     button,
     el(
       'p',
       'secondary-hint',
       `Your own file with ${String(remediated.changed)} colours replaced; nothing else touched.`,
     ),
-  );
-  return section;
+  ];
 }
 
 /** `city.json` comes back as `city.remediated.json`. */

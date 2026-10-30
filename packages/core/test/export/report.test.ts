@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { runAudit, type AuditOptions } from '../../src/audit/engine.js';
 import { parseColor } from '../../src/color/parse.js';
+import { TOOL_VERSION } from '../../src/export/language.js';
+import { generateAccessiblePalette } from '../../src/remediate/palette.js';
 import {
   generateHtmlReport,
   generateJsonReport,
@@ -31,8 +33,8 @@ const CONFUSABLE = [fill('roads', '#ff0000'), fill('parks', '#006a00')];
 /** Nothing here is confusable in any mode. */
 const CLEAN = [fill('ink', 'black'), fill('paper', 'white')];
 
-/** Enough identical fills to land in the red band. */
-const TROUBLE = Array.from({ length: 6 }, (_, index) => fill(`c${String(index)}`, '#336699'));
+/** Enough identical fills to land in the red band: eleven make 55 clashes. */
+const TROUBLE = Array.from({ length: 11 }, (_, index) => fill(`c${String(index)}`, '#336699'));
 
 describe('generateJsonReport', () => {
   it('parses back into the documented structure', () => {
@@ -140,9 +142,21 @@ describe('generateHtmlReport: document', () => {
 
   it('is self-contained: no external requests and no scripting', () => {
     expect(html).not.toContain('<script');
-    expect(html).not.toMatch(/https?:\/\//);
     expect(html).not.toContain('<link');
+    expect(html).not.toMatch(/src=/);
+    expect(html).not.toContain('@import');
+    expect(html).not.toMatch(/url\(\s*['"]?https?:/);
     expect(html).toContain('<style>');
+  });
+
+  it('reaches the network only through links a reader may choose to follow', () => {
+    // The report cites WCAG, and a citation worth having is one you can click.
+    // An href is not a request: nothing is fetched unless the reader asks.
+    const urls = html.match(/https?:\/\/[^"'\s<>]+/g) ?? [];
+    for (const url of urls) {
+      expect(html).toContain(`<a href="${url}">`);
+    }
+    expect(urls.some((url) => url.includes('w3.org/TR/WCAG21'))).toBe(true);
   });
 
   it('is titled in plain language', () => {
@@ -188,11 +202,11 @@ describe('generateHtmlReport: the verdict', () => {
     expect(html).toContain('🟢');
   });
 
-  it('is red once there are eleven clashes or more', () => {
+  it('is red once there are fifty-one clashes or more', () => {
     const html = generateHtmlReport(report(TROUBLE));
     expect(html).toContain('verdict verdict-needs-attention');
     expect(html).toContain('Needs attention');
-    expect(html).toContain('15 colour clashes found');
+    expect(html).toContain('55 colour clashes found');
     expect(html).toContain('🔴');
   });
 });
@@ -375,5 +389,116 @@ describe('generateHtmlReport: escaping', () => {
     const html = generateHtmlReport(data);
     expect(html).not.toContain('<img src=x');
     expect(html).toContain('&lt;img src=x');
+  });
+});
+
+describe('generateHtmlReport: methodology', () => {
+  const html = generateHtmlReport(report(CONFUSABLE));
+
+  it('names the metric and the space it is measured in', () => {
+    expect(html).toContain('CIEDE2000');
+    expect(html).toContain('CIELAB');
+    expect(html).toContain('D65');
+  });
+
+  it('states the clash threshold it ran at', () => {
+    expect(html).toContain('&lt; 10');
+  });
+
+  it('cites WCAG 2.1 for contrast, with the 3:1 floor for non-text', () => {
+    expect(html).toContain('WCAG 2.1');
+    expect(html).toContain('1.4.11');
+    expect(html).toContain('3:1');
+    expect(html).toContain('w3.org/TR/WCAG21');
+  });
+
+  it('cites the simulation model by author and year', () => {
+    expect(html).toContain('Machado');
+    expect(html).toContain('2009');
+  });
+
+  it('says what the colours were composited over', () => {
+    const over = generateHtmlReport(report(CONFUSABLE, { background: [0, 0, 0] }));
+    expect(over).toContain('#000000');
+  });
+
+  it('lists the modes that were audited', () => {
+    const one = generateHtmlReport(report(CONFUSABLE, { modes: ['protan'] }));
+    expect(one).toContain('Red-Blind (Protanopia)');
+  });
+});
+
+describe('generateHtmlReport: remediation', () => {
+  const classes = CONFUSABLE;
+  const palette = generateAccessiblePalette(classes);
+  const fixed = classes.map((cls, index) => ({
+    ...cls,
+    color: palette[index]?.remediated ?? cls.color,
+  }));
+  const withFix: ReportData = {
+    ...report(classes),
+    remediation: palette,
+    remediatedAudit: runAudit(fixed),
+  };
+  const html = generateHtmlReport(withFix);
+
+  it('is left out entirely when no palette was worked out', () => {
+    expect(generateHtmlReport(report(classes))).not.toContain('id="remediation"');
+  });
+
+  it('reports clashes before and after', () => {
+    expect(html).toContain('id="remediation"');
+    expect(html).toContain('clashes before');
+    expect(html).toContain('clashes after');
+    expect(html).toContain('clashes resolved');
+  });
+
+  it('describes the algorithm rather than just its output', () => {
+    expect(html).toContain('lightness');
+    expect(html).toContain('hue');
+  });
+
+  it('explains the ceiling a large palette runs into', () => {
+    expect(html).toContain('twelve classes');
+  });
+
+  it('adds a remediated column to the clash table', () => {
+    expect(html).toContain('<th>Remediated</th>');
+    expect(html).toContain('remediated');
+  });
+});
+
+describe('generateHtmlReport: colour table', () => {
+  const html = generateHtmlReport(report([fill('roads', '#ff0000', 0.5)]));
+
+  it('gives every class its hex, sRGB and Lab values', () => {
+    expect(html).toContain('id="colour-table"');
+    expect(html).toContain('L*, a*, b*');
+    expect(html).toContain('sRGB 0–255');
+    // Authored, then composited over white at half opacity.
+    expect(html).toContain('#ff0000');
+    expect(html).toContain('#ff8080');
+  });
+
+  it('records the opacity a class was composited at', () => {
+    expect(html).toContain('50%');
+  });
+});
+
+describe('generateHtmlReport: provenance and print', () => {
+  const html = generateHtmlReport(report(CONFUSABLE));
+
+  it('stamps the tool and version', () => {
+    expect(html).toContain('CartoAccessibility Studio');
+    expect(html).toContain(TOOL_VERSION);
+  });
+
+  it('takes a version from the caller when given one', () => {
+    expect(generateHtmlReport({ ...report(CONFUSABLE), toolVersion: '9.9.9' })).toContain('9.9.9');
+  });
+
+  it('carries print rules, and keeps the swatches inked', () => {
+    expect(html).toContain('@media print');
+    expect(html).toContain('print-color-adjust: exact');
   });
 });

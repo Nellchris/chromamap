@@ -1,0 +1,379 @@
+{
+  "version": 8,
+  "name": "NLCD 2021 land cover",
+  "metadata": {
+    "carto-a11y:purpose": "The published USGS National Land Cover Database colour scheme, as a style to audit. Sixteen conterminous-US classes plus the four Alaska-only ones.",
+    "carto-a11y:sample": true
+  },
+  "sources": {
+    "landcover": {
+      "type": "geojson",
+      "attribution": "Colour scheme: USGS National Land Cover Database (MRLC)",
+      "data": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 11,
+              "name": "Open Water"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.5,
+                39.5
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 12,
+              "name": "Perennial Ice/Snow"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.49,
+                39.5
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 21,
+              "name": "Developed, Open Space"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.48,
+                39.5
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 22,
+              "name": "Developed, Low Intensity"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.47,
+                39.5
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 23,
+              "name": "Developed, Medium Intensity"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.46,
+                39.5
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 24,
+              "name": "Developed, High Intensity"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.5,
+                39.51
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 31,
+              "name": "Barren Land (Rock/Sand/Clay)"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.49,
+                39.51
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 41,
+              "name": "Deciduous Forest"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.48,
+                39.51
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 42,
+              "name": "Evergreen Forest"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.47,
+                39.51
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 43,
+              "name": "Mixed Forest"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.46,
+                39.51
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 51,
+              "name": "Dwarf Scrub"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.5,
+                39.52
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 52,
+              "name": "Shrub/Scrub"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.49,
+                39.52
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 71,
+              "name": "Grassland/Herbaceous"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.48,
+                39.52
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 72,
+              "name": "Sedge/Herbaceous"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.47,
+                39.52
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 73,
+              "name": "Lichens"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.46,
+                39.52
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 74,
+              "name": "Moss"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.5,
+                39.53
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 81,
+              "name": "Pasture/Hay"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.49,
+                39.53
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 82,
+              "name": "Cultivated Crops"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.48,
+                39.53
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 90,
+              "name": "Woody Wetlands"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.47,
+                39.53
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "landcover": 95,
+              "name": "Emergent Herbaceous Wetlands"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -98.46,
+                39.53
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+  "center": [
+    -98.5,
+    39.5
+  ],
+  "zoom": 4,
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#ffffff"
+      }
+    },
+    {
+      "id": "landcover-fill",
+      "type": "fill",
+      "source": "landcover",
+      "paint": {
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "landcover"
+          ],
+          11,
+          "#466b9f",
+          12,
+          "#d1def8",
+          21,
+          "#dec5c5",
+          22,
+          "#d99282",
+          23,
+          "#eb0000",
+          24,
+          "#ab0000",
+          31,
+          "#b3ac9f",
+          41,
+          "#68ab5f",
+          42,
+          "#1c5f2c",
+          43,
+          "#b5c58f",
+          51,
+          "#af963c",
+          52,
+          "#ccb879",
+          71,
+          "#dfdfc2",
+          72,
+          "#d1d182",
+          73,
+          "#a3cc51",
+          74,
+          "#82ba9e",
+          81,
+          "#dcd939",
+          82,
+          "#ab6c28",
+          90,
+          "#b8d9eb",
+          95,
+          "#6c9fb8",
+          "#cccccc"
+        ],
+        "fill-opacity": 1
+      }
+    },
+    {
+      "id": "landcover-outline",
+      "type": "line",
+      "source": "landcover",
+      "paint": {
+        "line-color": "#8c8c8c",
+        "line-width": 0.4
+      }
+    }
+  ]
+}

@@ -142,7 +142,15 @@ describe('audit: html format', () => {
     expect(html.startsWith('<!doctype html>')).toBe(true);
     expect(html).toContain('</html>');
     expect(html).not.toContain('<script');
-    expect(html).not.toMatch(/https?:\/\//);
+    // Nothing is fetched when the file is opened: no stylesheet, no image, no
+    // font, no import. The report cites WCAG, and those citations are links a
+    // reader may follow - a link is not a request.
+    expect(html).not.toContain('<link');
+    expect(html).not.toMatch(/src=/);
+    expect(html).not.toContain('@import');
+    for (const url of html.match(/https?:\/\/[^"'\s<>]+/g) ?? []) {
+      expect(html).toContain(`<a href="${url}">`);
+    }
   });
 
   it('contains the audit findings', () => {

@@ -17,13 +17,18 @@ import {
   type VisionMode,
 } from '../audit/engine.js';
 import { CVD_MATRICES, simulateCVD } from '../color/cvd.js';
+import { rgbToLab } from '../color/lab.js';
 import { rgbToHex, type RGB } from '../color/parse.js';
+import { REMEDIATION_LIGHTNESS, type RemediationResult } from '../remediate/palette.js';
 import type { MapClass } from '../style/extract.js';
 import {
   ABOUT_TEXT,
+  TOOL_NAME,
+  TOOL_VERSION,
   VISION_MODE_LABELS,
   VISION_MODE_SHORT,
   clashSentence,
+  formatCount,
   humaniseClassId,
   summariseAudit,
 } from './language.js';
@@ -40,6 +45,18 @@ export interface ReportData {
   audit: AuditResult;
   /** The options the audit ran under. */
   options: AuditOptions;
+  /**
+   * The accessible palette, where one has been worked out.
+   *
+   * Optional because an audit stands on its own: the CLI reports what a style
+   * does today whether or not anyone has asked for a repair. When it is here,
+   * the report gains a before-and-after column and a remediation section.
+   */
+  remediation?: RemediationResult[];
+  /** The audit of that palette, for the before-and-after figures. */
+  remediatedAudit?: AuditResult;
+  /** Overrides the tool version the report stamps itself with. */
+  toolVersion?: string;
 }
 
 /** The options with defaults filled in, so a report never prints "undefined". */
@@ -321,19 +338,46 @@ function colourSection(classes: readonly MapClass[], background: RGB): string {
   );
 }
 
+/** Below this ratio a pair fails WCAG 2.1 SC 1.4.11 for non-text contrast. */
+const CONTRAST_FLOOR = 3;
+
 /** One row of the technical table. */
-function technicalRow(pair: AuditPair, background: RGB): string {
+function technicalRow(
+  pair: AuditPair,
+  background: RGB,
+  fixed: ReadonlyMap<string, RGB> | undefined,
+): string {
   const seenA = asSeen(flatten(pair.classA, background), pair.mode);
   const seenB = asSeen(flatten(pair.classB, background), pair.mode);
+  const nameA = humaniseClassId(pair.classA);
+  const nameB = humaniseClassId(pair.classB);
+
+  const after =
+    fixed === undefined
+      ? ''
+      : (() => {
+          const fixedA = fixed.get(pair.classA.id);
+          const fixedB = fixed.get(pair.classB.id);
+          if (fixedA === undefined || fixedB === undefined) {
+            return `<td class="muted">—</td>`;
+          }
+          return (
+            `<td><span class="seen">` +
+            `${swatch(fixedA, `${nameA}, remediated`)}${swatch(fixedB, `${nameB}, remediated`)}` +
+            `</span></td>`
+          );
+        })();
+
+  const contrastClass = pair.contrast < CONTRAST_FLOOR ? ' class="num bad-cell"' : ' class="num"';
   return (
     `<tr>` +
-    `<td>${swatch(flatten(pair.classA, background), humaniseClassId(pair.classA))}</td>` +
-    `<td>${swatch(flatten(pair.classB, background), humaniseClassId(pair.classB))}</td>` +
+    `<td>${swatch(flatten(pair.classA, background), nameA)} <code>${rgbToHex(pair.classA.color)}</code></td>` +
+    `<td>${swatch(flatten(pair.classB, background), nameB)} <code>${rgbToHex(pair.classB.color)}</code></td>` +
     `<td>${escapeHtml(VISION_MODE_LABELS[pair.mode])}</td>` +
     `<td class="num">${pair.dE.toFixed(2)}</td>` +
-    `<td class="num">${pair.contrast.toFixed(2)}:1</td>` +
-    `<td><span class="seen">${swatch(seenA, rgbToHex(seenA))}${swatch(seenB, rgbToHex(seenB))}</span></td>` +
-    `</tr>`
+    `<td${contrastClass}>${pair.contrast.toFixed(2)}:1</td>` +
+    `<td><span class="seen">${swatch(seenA, `${nameA}, simulated`)}${swatch(seenB, `${nameB}, simulated`)}</span></td>` +
+    `${after}</tr>`
   );
 }
 
@@ -345,10 +389,15 @@ function technicalRow(pair: AuditPair, background: RGB): string {
  * of it.
  */
 function technicalSection(data: ReportData, resolved: ResolvedOptions): string {
+  const fixed =
+    data.remediation === undefined
+      ? undefined
+      : new Map(data.remediation.map((entry) => [entry.classId, entry.remediated] as const));
+
   const rows = data.audit.failing
     .slice()
     .sort((a, b) => a.dE - b.dE)
-    .map((pair) => technicalRow(pair, resolved.background))
+    .map((pair) => technicalRow(pair, resolved.background, fixed))
     .join('');
 
   const settings =
@@ -358,17 +407,155 @@ function technicalSection(data: ReportData, resolved: ResolvedOptions): string {
     `because map classes are read in small patches at a glance. Contrast is the WCAG 2.1 ratio.</p>`;
 
   if (rows === '') {
-    return `<section><h2>Technical details</h2>${settings}<p class="empty">No pair fell below the threshold.</p></section>`;
+    return `<section id="clash-table"><h2>Technical details</h2>${settings}<p class="empty">No pair fell below the threshold.</p></section>`;
   }
 
   return (
-    `<section><h2>Technical details</h2>${settings}` +
+    `<section id="clash-table"><h2>Technical details</h2>${settings}` +
     `<table><thead><tr>` +
     `<th>Colour A</th><th>Colour B</th><th>Vision mode</th>` +
     `<th class="num">ΔE00</th><th class="num">Contrast</th><th>As seen</th>` +
+    `${fixed === undefined ? '' : '<th>Remediated</th>'}` +
     `</tr></thead><tbody>${rows}</tbody></table>` +
-    `<p class="note">${String(data.audit.summary.total)} judgements in total: every pair of map ` +
-    `colours, under every vision mode checked.</p></section>`
+    `<p class="note">${formatCount(data.audit.summary.total)} judgements in total: every pair of ` +
+    `map colours, under every vision mode checked. A contrast ratio below ` +
+    `${String(CONTRAST_FLOOR)}:1 is marked: that is the WCAG 2.1 floor for non-text ` +
+    `graphical objects.</p></section>`
+  );
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Methodology, remediation and the colour table
+ *
+ * The app's panel shows a reader what is wrong with their map. This report is
+ * where the working is kept: what was measured, with which metric, against
+ * which threshold, and what every number came out at. Anything stripped out of
+ * the panel for being jargon has to be here, or it is simply gone.
+ * ------------------------------------------------------------------ */
+
+/** How the audit was carried out, in enough detail to be checked or repeated. */
+function methodologySection(resolved: ResolvedOptions): string {
+  const modes = resolved.modes
+    .map((mode) => escapeHtml(VISION_MODE_LABELS[mode]))
+    .join(', ');
+  return (
+    `<section id="methodology"><h2>Methodology</h2>` +
+    `<dl class="method">` +
+    `<dt>Colour difference</dt><dd>CIEDE2000 (ΔE<sub>00</sub>), the CIE 2000 ` +
+    `colour-difference formula, computed in CIELAB under a D65 white point. ` +
+    `Below about 1 ΔE<sub>00</sub> two colours are indistinguishable side by side.</dd>` +
+    `<dt>Clash threshold</dt><dd>A pair is reported as a clash when ` +
+    `ΔE<sub>00</sub> &lt; ${String(resolved.threshold)}. That is far above the ` +
+    `just-noticeable difference on purpose: map classes are read at a glance, in ` +
+    `small patches, against varying surroundings, not compared side by side.</dd>` +
+    `<dt>Contrast</dt><dd>WCAG 2.1 relative-luminance contrast ratio, 1:1 to 21:1 ` +
+    `(<a href="https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio">W3C WCAG 2.1, ` +
+    `contrast ratio</a>). A ratio below 3:1 is reported as failing: that is the ` +
+    `WCAG 2.1 floor for non-text graphical objects ` +
+    `(<a href="https://www.w3.org/TR/WCAG21/#non-text-contrast">SC 1.4.11 Non-text ` +
+    `Contrast</a>, Level AA).</dd>` +
+    `<dt>Colour vision deficiency</dt><dd>Simulated with the matrices of Machado, ` +
+    `Oliveira and Fernandes (2009), <em>A Physiologically-based Model for Simulation ` +
+    `of Color Vision Deficiency</em>, IEEE Transactions on Visualization and Computer ` +
+    `Graphics 15(6), at full severity (1.0). Applied in linear light through the ` +
+    `sRGB transfer function.</dd>` +
+    `<dt>Compositing</dt><dd>Every class is flattened onto the map background ` +
+    `(<code>${rgbToHex(resolved.background)}</code>) at its own opacity before ` +
+    `being measured, so a translucent class is judged as it lands rather than as ` +
+    `it was written.</dd>` +
+    `<dt>Modes audited</dt><dd>${modes}</dd>` +
+    `</dl></section>`
+  );
+}
+
+/** What the repalette did, and what it could not do. */
+function remediationSection(data: ReportData): string {
+  const { remediation } = data;
+  if (remediation === undefined || remediation.length === 0) {
+    return '';
+  }
+
+  const before = summariseAudit(data.classes, data.audit).clashes;
+  const after =
+    data.remediatedAudit === undefined
+      ? undefined
+      : summariseAudit(data.classes, data.remediatedAudit).clashes;
+  const moved = remediation.filter(
+    (entry) => rgbToHex(entry.original) !== rgbToHex(entry.remediated),
+  ).length;
+
+  const figures =
+    after === undefined
+      ? `<p>${formatCount(moved)} of ${formatCount(remediation.length)} colours were changed.</p>`
+      : `<p class="figures">` +
+        `<span class="figure"><span class="figure-n">${formatCount(before)}</span>` +
+        `<span class="figure-l">clashes before</span></span>` +
+        `<span class="figure"><span class="figure-n">${formatCount(after)}</span>` +
+        `<span class="figure-l">clashes after</span></span>` +
+        `<span class="figure"><span class="figure-n">${formatCount(Math.max(0, before - after))}</span>` +
+        `<span class="figure-l">clashes resolved</span></span>` +
+        `<span class="figure"><span class="figure-n">${formatCount(moved)}</span>` +
+        `<span class="figure-l">colours changed</span></span>` +
+        `</p>`;
+
+  return (
+    `<section id="remediation"><h2>Remediation</h2>${figures}` +
+    `<h3>How the palette was built</h3>` +
+    `<p>Dichromacy takes away hue discrimination and leaves lightness very nearly ` +
+    `intact. The repair therefore stops the palette relying on hue: the classes are ` +
+    `ranked by their original lightness and handed evenly spaced slots through an ` +
+    `L* band of ${String(REMEDIATION_LIGHTNESS.min)}–${String(REMEDIATION_LIGHTNESS.max)}, ` +
+    `which keeps the light-to-dark ordering the author chose. Hues are then rotated, ` +
+    `a class at a time, while a trial audit after each move keeps whichever palette ` +
+    `scores best.</p>` +
+    `<h3>Why it does not reach zero</h3>` +
+    `<p>Even spacing across a 60 L* band gives adjacent classes 60/(n−1) L* of ` +
+    `separation, and CIEDE2000 between two colours of similar hue is close to their ` +
+    `lightness difference. A palette of more than about twelve classes therefore ` +
+    `cannot put every pair ${String(resolveOptions(data.options).threshold)} ΔE` +
+    `<sub>00</sub> apart however the hues are arranged — the ceiling is arithmetic, ` +
+    `not a shortcoming of the search. Past that point a map needs texture, labels, ` +
+    `direct annotation or fewer classes; colour alone will not carry it, and this ` +
+    `report says how far colour got.</p></section>`
+  );
+}
+
+/** Every class with the numbers behind its swatch. */
+function colourTableSection(classes: readonly MapClass[], background: RGB): string {
+  if (classes.length === 0) {
+    return '';
+  }
+  const rows = classes
+    .map((cls) => {
+      const flat = flatten(cls, background);
+      const [r, g, b] = flat;
+      const lab = rgbToLab(flat);
+      return (
+        `<tr>` +
+        `<td>${swatch(flat, humaniseClassId(cls))}</td>` +
+        `<td><code>${escapeHtml(cls.id)}</code></td>` +
+        `<td>${escapeHtml(cls.type)}</td>` +
+        `<td class="num">${String(Math.round(cls.opacity * 100))}%</td>` +
+        `<td class="num"><code>${rgbToHex(cls.color)}</code></td>` +
+        `<td class="num"><code>${rgbToHex(flat)}</code></td>` +
+        `<td class="num">${String(Math.round(r * 255))}, ${String(Math.round(g * 255))}, ${String(Math.round(b * 255))}</td>` +
+        `<td class="num">${lab.L.toFixed(1)}, ${lab.a.toFixed(1)}, ${lab.b.toFixed(1)}</td>` +
+        `</tr>`
+      );
+    })
+    .join('');
+
+  return (
+    `<section id="colour-table"><h2>Colour table ` +
+    `<span class="count">${formatCount(classes.length)}</span></h2>` +
+    `<p class="note">As authored, as composited onto the background, and in CIELAB — ` +
+    `the space the distances are measured in.</p>` +
+    `<table><thead><tr>` +
+    `<th>Colour</th><th>Class id</th><th>Type</th><th class="num">Opacity</th>` +
+    `<th class="num">Authored</th><th class="num">Composited</th>` +
+    `<th class="num">sRGB 0–255</th><th class="num">L*, a*, b*</th>` +
+    `</tr></thead><tbody>${rows}</tbody></table></section>`
   );
 }
 
@@ -492,12 +679,55 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
    would read as one block and hide the very thing being shown. */
 .seen { display: inline-flex; gap: 2px; align-items: center; flex-wrap: wrap; }
 footer { color: var(--ink-3); font-size: 12px; max-width: 1040px; margin: 16px auto 0; }
+h3 { font-size: 13px; margin: 16px 0 6px; color: var(--ink-2); }
+section p { font-size: 14px; color: var(--ink-2); margin: 0 0 10px; max-width: 74ch; }
+section p:last-child { margin-bottom: 0; }
+section a { color: #1a56a8; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+td.bad-cell { color: var(--bad); font-weight: 600; }
+td.muted { color: var(--ink-3); }
+
+/* ---- methodology: a definition list reads better than prose here ---- */
+.method { margin: 0; display: grid; grid-template-columns: 180px 1fr; gap: 8px 18px; }
+.method dt { font-size: 13px; font-weight: 600; color: var(--ink); }
+.method dd { margin: 0; font-size: 13px; color: var(--ink-2); max-width: 74ch; }
+@media (max-width: 620px) {
+  .method { grid-template-columns: 1fr; gap: 2px; }
+  .method dd { margin-bottom: 10px; }
+}
+
+/* ---- before-and-after figures ---- */
+.figures { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; }
+.figure {
+  flex: 1 1 130px; display: flex; flex-direction: column; gap: 2px;
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px;
+}
+.figure-n { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.figure-l { font-size: 12px; color: var(--ink-3); }
+
 @media (max-width: 620px) {
   table, thead, tbody, tr, th, td { display: block; }
   thead { display: none; }
   tbody tr { border-bottom: 1px solid var(--line); padding: 8px 0; }
   th, td { border: 0; padding: 3px 0; }
   td.num, th.num { text-align: left; }
+}
+
+/* ---- paper ---- */
+@media print {
+  body { background: #fff; padding: 0; font-size: 11pt; }
+  .controls, .vision-toggle { display: none; }
+  .report { max-width: none; }
+  section {
+    border: 1px solid #ccc; break-inside: avoid; page-break-inside: avoid;
+    margin-bottom: 10px;
+  }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  h2 { break-after: avoid; page-break-after: avoid; }
+  a { color: inherit; text-decoration: none; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 9pt; color: #555; }
+  /* Swatches are the whole point of this document; keep the ink. */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 `;
 
@@ -538,16 +768,21 @@ ${visionControls()}
 <h1>Map accessibility audit</h1>
 <p class="meta">Check if your map colours work for everyone.</p>
 <p class="meta">Source <code>${escapeHtml(data.styleSource)}</code> · run ${escapeHtml(data.timestamp)}</p>
+<p class="meta">${escapeHtml(TOOL_NAME)} ${escapeHtml(data.toolVersion ?? TOOL_VERSION)} · ${formatCount(data.classes.length)} map ${data.classes.length === 1 ? 'colour' : 'colours'} audited</p>
 </header>
 ${verdictSection(data)}
 ${clashSection(data, resolved)}
 ${modeSection(data.audit, resolved)}
+${remediationSection(data)}
 ${colourSection(data.classes, resolved.background)}
+${methodologySection(resolved)}
 ${technicalSection(data, resolved)}
+${colourTableSection(data.classes, resolved.background)}
 </main>
 <footer>
 ${escapeHtml(ABOUT_TEXT)}
 Dichromacy simulation follows Machado, Oliveira and Fernandes (2009) at full severity.
+Generated by ${escapeHtml(TOOL_NAME)} ${escapeHtml(data.toolVersion ?? TOOL_VERSION)}.
 </footer>
 </body>
 </html>

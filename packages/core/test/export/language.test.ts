@@ -112,7 +112,7 @@ describe('summariseAudit: a style with a few problems', () => {
     fill('d', 'white'),
   ]);
 
-  it('is amber between one and ten clashes', () => {
+  it('is amber between one and fifty clashes', () => {
     expect(summary.clashes).toBe(3);
     expect(summary.level).toBe('some-issues');
     expect(summary.label).toBe('Some issues');
@@ -134,19 +134,30 @@ describe('summariseAudit: a style with a few problems', () => {
 });
 
 describe('summariseAudit: a style in trouble', () => {
-  const classes = Array.from({ length: 6 }, (_, index) => fill(`c${String(index)}`, '#336699'));
+  // Eleven identical fills clash with each other 55 ways, which is past the
+  // fifty the amber band covers.
+  const classes = Array.from({ length: 11 }, (_, index) => fill(`c${String(index)}`, '#336699'));
   const summary = summarise(classes);
 
-  it('is red at eleven clashes or more', () => {
-    expect(summary.clashes).toBe(15);
+  it('is red at fifty-one clashes or more', () => {
+    expect(summary.clashes).toBe(55);
     expect(summary.level).toBe('needs-attention');
     expect(summary.label).toBe('Needs attention');
     expect(summary.indicator).toBe('🔴');
   });
 
+  it('stays amber at fifty', () => {
+    // Ten fills make 45 pairs; the band runs to fifty inclusive.
+    const amber = summarise(
+      Array.from({ length: 10 }, (_, index) => fill(`c${String(index)}`, '#336699')),
+    );
+    expect(amber.clashes).toBe(45);
+    expect(amber.level).toBe('some-issues');
+  });
+
   it('writes the headline in the plural', () => {
-    expect(summary.headline).toBe('15 colour clashes found');
-    expect(summary.detail).toContain('6 of 6 map colours');
+    expect(summary.headline).toBe('55 colour clashes found');
+    expect(summary.detail).toContain('11 of 11 map colours');
   });
 });
 

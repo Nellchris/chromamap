@@ -41,9 +41,9 @@ import {
   auditView,
   changedPanel,
   clashPanel,
+  downloadsPanel,
   scoreCard,
   seenColor,
-  technicalPanel,
   type AuditView,
   type ModeView,
 } from './audit-view.js';
@@ -185,11 +185,6 @@ function unitOf(classId: string): string | undefined {
   }
   const unit = classId.slice(slash + 1);
   return unit === '' || unit === 'default' ? undefined : unit;
-}
-
-/** A unit code, for the dense technical table where a sentence will not fit. */
-function codeOf(cls: MapClass): string {
-  return unitOf(cls.id) ?? humaniseClassId(cls.id);
 }
 
 /**
@@ -447,13 +442,19 @@ export async function createDemo(options: DemoOptions): Promise<Demo> {
           },
         }),
       ];
+      const accessible = state.variants.find((entry) => entry.key === 'accessible');
       if (variant.key === 'accessible' && original !== undefined) {
-        body.push(changedPanel(original, variant, mode), exportPanel(state));
+        body.push(changedPanel(original, variant, mode));
       }
       body.push(
+        downloadsPanel({
+          source: 'hawaii-baseline.json',
+          before: original ?? variant,
+          after: accessible,
+          extra: accessible === undefined ? [] : exportButtons(accessible, state.geojson),
+        }),
         ownMapPanel(options.onAuditOwnMap),
         legendPanel(state, mode),
-        technicalPanel(variant, codeOf),
         aboutPanel(),
       );
 
@@ -643,9 +644,9 @@ function ownMapPanel(onAuditOwnMap: () => void): HTMLElement {
 }
 
 /** The remediated palette, keyed by map unit. */
-function remediatedColours(state: DemoState): Map<string, string> {
+function remediatedColours(variant: Variant): Map<string, string> {
   const colours = new Map<string, string>();
-  for (const cls of current(state).classes) {
+  for (const cls of variant.classes) {
     const unit = unitOf(cls.id);
     if (unit !== undefined) {
       colours.set(unit, rgbToHex(cls.color));
@@ -654,30 +655,28 @@ function remediatedColours(state: DemoState): Map<string, string> {
   return colours;
 }
 
-/** Take the remediated style away and use it elsewhere. */
-function exportPanel(state: DemoState): HTMLElement {
-  const section = el('section', 'panel');
-  section.append(el('h2', 'panel-title', 'Take it with you'));
-
-  const styleButton = el('button', 'secondary-button', 'Download remediated style');
+/**
+ * The demo's own two downloads, handed to the shared Downloads card.
+ *
+ * The style and the data go out together: a palette is only usable if whatever
+ * draws the map can be told about it, and not every pipeline reads a style.
+ */
+function exportButtons(accessible: Variant, geojson: unknown): HTMLElement[] {
+  const styleButton = el('button', 'secondary-button', 'Download fixed style');
   styleButton.type = 'button';
   styleButton.addEventListener('click', () => {
     download(
-      'remediated-style.json',
-      `${JSON.stringify(current(state).style, null, 2)}\n`,
+      'accessible-style.json',
+      JSON.stringify(accessible.style, null, 2) + '\n',
       'application/json',
     );
   });
-  section.append(
-    styleButton,
-    el('p', 'secondary-hint', 'Use this style in your own MapLibre map'),
-  );
 
-  const dataButton = el('button', 'secondary-button', 'Download remediated GeoJSON');
+  const dataButton = el('button', 'secondary-button', 'Download fixed GeoJSON');
   dataButton.type = 'button';
   dataButton.addEventListener('click', () => {
-    const colours = remediatedColours(state);
-    const source = state.geojson as { features?: unknown } | null;
+    const colours = remediatedColours(accessible);
+    const source = geojson as { features?: unknown } | null;
     const features = Array.isArray(source?.features) ? source.features : [];
     const exported = {
       ...(typeof source === 'object' && source !== null ? source : {}),
@@ -694,13 +693,15 @@ function exportPanel(state: DemoState): HTMLElement {
         };
       }),
     };
-    download('remediated-units.geojson', `${JSON.stringify(exported)}\n`, 'application/geo+json');
+    download('accessible-units.geojson', `${JSON.stringify(exported)}\n`, 'application/geo+json');
   });
-  section.append(
+
+  return [
+    styleButton,
+    el('p', 'secondary-hint', 'Use this style in your own MapLibre map'),
     dataButton,
-    el('p', 'secondary-hint', 'GeoJSON with accessible colours added to each feature'),
-  );
-  return section;
+    el('p', 'secondary-hint', 'GeoJSON with accessible colours on each feature'),
+  ];
 }
 
 /**
