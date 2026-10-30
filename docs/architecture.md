@@ -30,8 +30,8 @@ Core is layered, and each layer only reaches downwards:
 - `color/` — the maths. `wcag` (luminance, contrast), `parse` (CSS colour
   strings), `lab` (CIELAB, CIEDE2000) and `cvd` (dichromacy simulation).
 - `style/` — reads a MapLibre style and hands back a flat list of `MapClass`
-  values. Static only: it never evaluates a data expression, and skips what it
-  cannot resolve rather than guessing.
+  values, and writes a palette back into one. Static only: it never evaluates a
+  data expression, and skips what it cannot resolve rather than guessing.
 - `audit/` — `compositeOver` flattens opacity onto a background, and `runAudit`
   walks the class list pairwise under each vision mode.
 - `export/` — turns one audit into a JSON document or a self-contained HTML
@@ -41,6 +41,20 @@ So a style audit is a pipeline: `extractClasses` → `compositeOver` →
 `simulateCVD` → `ciede2000` / `contrastRatio`. Each step is exported on its
 own, because the web UI needs the intermediate values (what a swatch looks like
 under deuteranopia) and not just the verdict.
+
+## One source for the style walk
+
+`extractClasses` names every colour it finds — `units/Qkh`, `roads:line` — and
+everything downstream, the audit and the remediated palette alike, is keyed by
+those names. `applyPalette` has to find the same colours again to write new
+ones back, so both go through the single walk in `style/slots.ts` rather than
+each implementing its own. An id extraction can produce is therefore always an
+id the rewriter can place, and `applyPalette`'s `missing` list means what it
+says: this style has no such class.
+
+That is what lets the web UI hand a reader their own style file back, rewritten
+and otherwise byte-for-byte their own, and `scripts/remediate-hawaii.ts` build
+the demo's accessible style the same way.
 
 ## One source for the simulation
 
@@ -59,9 +73,25 @@ with the swatches beside it.
 MapLibre locates its worker with `new URL('./maplibre-gl-worker.mjs',
 import.meta.url)`. Any bundler that moves the module breaks that URL, and the
 failure is quiet: the map draws its background layer and nothing else. So
-`apps/web/src/app.ts` imports the worker as a Vite asset and names it with
+`apps/web/src/demo.ts` imports the worker as a Vite asset and names it with
 `setWorkerUrl`. Both the dev server and `vite build` have been checked against
 a rendered map, not just a clean exit code.
+
+## Two modes, one panel
+
+`apps/web` is one tool with two modes. `demo.ts` draws the Hawaiʻi geology on a
+MapLibre map; `upload.ts` audits a style the reader drops in and, having no data
+to draw it with, shows the colours themselves as a grid of swatches. Both hand
+`app.ts` the same small `ModeView` — a caption, a header, a score, a body, and
+what to put over the map area — and neither knows the other exists. The panels
+that read an audit live in `audit-view.ts` and are shared, so the two modes
+cannot drift into saying different things about the same numbers.
+
+Remediation is the one thing that cannot run inline: `generateAccessiblePalette`
+spends trial audits, each quadratic in the class count, and a hundred-class
+style takes the better part of a minute. `remediate.worker.ts` runs it off the
+main thread, which core's DOM-free rule is what makes possible. The audit a
+reader came for is on screen while it works.
 
 ## TypeScript setup
 

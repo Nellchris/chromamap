@@ -33,6 +33,12 @@ export { CVD_MATRICES, simulateCVD } from './color/cvd.js';
 export type { MapClass } from './style/extract.js';
 export { extractBackground, extractClasses } from './style/extract.js';
 
+export type { PaintSlot, PaintType } from './style/slots.js';
+export { paintSlots } from './style/slots.js';
+
+export type { AppliedPalette } from './style/rewrite.js';
+export { applyPalette } from './style/rewrite.js';
+
 export type { AuditOptions, AuditPair, AuditResult, VisionMode } from './audit/index.js';
 export {
   DEFAULT_THRESHOLD,

@@ -102,11 +102,21 @@ const { failing, summary } = runAudit(extractClasses(style));
 Reference values are checked against published sources where they exist
 (Sharma et al. for CIEDE2000, the CSS spec for named colours).
 
-`apps/web` is a Vite + TypeScript app with no framework: a MapLibre map, a
-collapsible sidebar, and the engine running in the browser on the very style
-the map is drawing, so the panel and the map cannot disagree. Vision-mode
-preview is an SVG `feColorMatrix` filter over the map container built from the
-same Machado matrices `simulateCVD` uses.
+`apps/web` is a Vite + TypeScript app with no framework, and has two modes.
+**Hawaiʻi Demo** is a MapLibre map with the engine running in the browser on
+the very style the map is drawing, so the panel and the map cannot disagree.
+**Your Map** audits a MapLibre style JSON file the reader drops in: the file is
+read with the File API and never leaves the browser, the colours come out
+through the same `extractClasses`, and because a style names its data sources
+without carrying them, the colours themselves become the view — one labelled
+swatch per class, each shown as it reads to normal, protan, deutan and tritan
+vision, with a badge wherever a colour collides with another. The remediated
+style comes back as a download: the reader's own file, recoloured and otherwise
+untouched.
+
+Vision-mode preview is an SVG `feColorMatrix` filter — over the map container
+in one mode, over the swatches in the other — built from the same Machado
+matrices `simulateCVD` uses.
 
 `scripts/fetch-hawaii.ts` runs on Node 24 directly — no loader, no build step —
 because Node strips the types itself.

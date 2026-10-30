@@ -14,10 +14,25 @@
  * - a `["match", input, label, colour, ..., fallback]` expression, whose
  *   branches each become a class of their own
  *
+ * The walk itself, and with it the id scheme, lives in `./slots.js`, which the
+ * rewriter shares so the two cannot drift apart.
+ *
  * @see https://maplibre.org/maplibre-style-spec/
  */
 
-import { parseColor, type RGB } from '../color/parse.js';
+import type { RGB } from '../color/parse.js';
+
+import {
+  isHidden,
+  isMatchExpression,
+  isRecord,
+  matchBranches,
+  matchInputProperty,
+  paintSlots,
+  resolveColor,
+  resolveOpacity,
+  type PaintType,
+} from './slots.js';
 
 /** What a style is drawn on when it names no background of its own. */
 const PAPER_WHITE: RGB = [1, 1, 1];
@@ -33,7 +48,7 @@ export interface MapClass {
   /** The colour as authored, before any compositing. */
   color: RGB;
   /** Which paint property this came from. */
-  type: 'fill' | 'line' | 'text' | 'circle';
+  type: PaintType;
   /** The matching `*-opacity`, or 1 when absent or not statically resolvable. */
   opacity: number;
   /**
@@ -46,105 +61,6 @@ export interface MapClass {
    * stays undefined and callers fall back to the id.
    */
   displayName?: string;
-}
-
-/** The paint properties that carry a colour, and what they map to. */
-const PAINT_PROPERTIES: ReadonlyArray<{
-  readonly colorKey: string;
-  readonly opacityKey: string;
-  readonly type: MapClass['type'];
-}> = [
-  { colorKey: 'fill-color', opacityKey: 'fill-opacity', type: 'fill' },
-  { colorKey: 'line-color', opacityKey: 'line-opacity', type: 'line' },
-  { colorKey: 'text-color', opacityKey: 'text-opacity', type: 'text' },
-  { colorKey: 'circle-color', opacityKey: 'circle-opacity', type: 'circle' },
-];
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/** The output of the last entry of a legacy `{ stops: [...] }` function. */
-function lastStopOutput(value: unknown): unknown {
-  if (!isRecord(value) || !Array.isArray(value['stops'])) {
-    return undefined;
-  }
-  const stops: readonly unknown[] = value['stops'];
-  const last = stops.at(-1);
-  if (!Array.isArray(last) || last.length < 2) {
-    return undefined;
-  }
-  const output: readonly unknown[] = last;
-  return output[1];
-}
-
-/** True for `["match", ...]`, the one expression form handled here. */
-function isMatchExpression(value: unknown): value is readonly unknown[] {
-  return Array.isArray(value) && value[0] === 'match';
-}
-
-/** Render a match label (or label list) as an id fragment. */
-function labelToIdFragment(label: unknown): string {
-  if (Array.isArray(label)) {
-    const labels: readonly unknown[] = label;
-    return labels.map((entry) => String(entry)).join('|');
-  }
-  return String(label);
-}
-
-/**
- * Split a match expression into its labelled branches.
- *
- * `["match", input, l1, o1, l2, o2, fallback]` yields the two labelled pairs
- * plus the trailing fallback, which is reported under the label `default`.
- */
-function matchBranches(
-  expression: readonly unknown[],
-): ReadonlyArray<{ readonly label: string; readonly raw: unknown; readonly output: unknown }> {
-  const branches: Array<{ label: string; raw: unknown; output: unknown }> = [];
-  let index = 2;
-  while (index + 1 < expression.length) {
-    branches.push({
-      label: labelToIdFragment(expression[index]),
-      raw: expression[index],
-      output: expression[index + 1],
-    });
-    index += 2;
-  }
-  if (index === expression.length - 1) {
-    branches.push({ label: 'default', raw: undefined, output: expression[index] });
-  }
-  return branches;
-}
-
-/** Resolve a paint value to a colour, or undefined when it is not static. */
-function resolveColor(value: unknown): RGB | undefined {
-  if (typeof value === 'string') {
-    try {
-      return parseColor(value);
-    } catch {
-      return undefined;
-    }
-  }
-  if (isRecord(value)) {
-    const stopped = lastStopOutput(value);
-    return stopped === undefined ? undefined : resolveColor(stopped);
-  }
-  return undefined;
-}
-
-/** Resolve a paint value to an opacity, defaulting to fully opaque. */
-function resolveOpacity(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return Math.min(1, Math.max(0, value));
-  }
-  if (isRecord(value)) {
-    const stopped = lastStopOutput(value);
-    if (stopped !== undefined) {
-      return resolveOpacity(stopped);
-    }
-  }
-  return 1;
 }
 
 /** Properties a feature might carry its readable name under. */
@@ -202,16 +118,6 @@ function inlineFeatures(style: Record<string, unknown>): Map<string, readonly un
   return bySource;
 }
 
-/** The feature property a match expression switches on, if it is a plain get. */
-function matchInputProperty(expression: readonly unknown[]): string | undefined {
-  const input = expression[1];
-  if (Array.isArray(input) && input[0] === 'get' && typeof input[1] === 'string') {
-    return input[1];
-  }
-  // The legacy form names the property directly.
-  return typeof input === 'string' ? input : undefined;
-}
-
 /** The name of the first feature whose `property` equals `label`. */
 function nameForLabel(
   features: readonly unknown[],
@@ -231,20 +137,6 @@ function nameForLabel(
   return undefined;
 }
 
-/** Layers hidden by `layout.visibility` paint nothing, so they are skipped. */
-function isHidden(layer: Record<string, unknown>): boolean {
-  const layout = layer['layout'];
-  return isRecord(layout) && layout['visibility'] === 'none';
-}
-
-/**
- * Extract every statically known colour from a MapLibre GL style.
- *
- * @param style - Parsed style JSON. Anything without a `layers` array yields
- *   an empty list rather than an error, so a malformed style degrades to "no
- *   classes found".
- * @returns One {@link MapClass} per resolvable colour, in layer order.
- */
 /**
  * The colour a style paints behind everything else.
  *
@@ -275,12 +167,19 @@ export function extractBackground(style: unknown): RGB {
   return [...PAPER_WHITE];
 }
 
+/**
+ * Extract every statically known colour from a MapLibre GL style.
+ *
+ * @param style - Parsed style JSON. Anything without a `layers` array yields
+ *   an empty list rather than an error, so a malformed style degrades to "no
+ *   classes found".
+ * @returns One {@link MapClass} per resolvable colour, in layer order.
+ */
 export function extractClasses(style: unknown): MapClass[] {
-  if (!isRecord(style) || !Array.isArray(style['layers'])) {
+  if (!isRecord(style)) {
     return [];
   }
 
-  const layers: readonly unknown[] = style['layers'];
   const classes: MapClass[] = [];
   const featuresBySource = inlineFeatures(style);
 
@@ -292,52 +191,36 @@ export function extractClasses(style: unknown): MapClass[] {
     return cls;
   };
 
-  for (const [index, rawLayer] of layers.entries()) {
-    if (!isRecord(rawLayer) || isHidden(rawLayer)) {
+  for (const slot of paintSlots(style)) {
+    const sourceId = slot.layer['source'];
+    const features =
+      typeof sourceId === 'string' ? featuresBySource.get(sourceId) : undefined;
+    const opacity = resolveOpacity(slot.paint[slot.opacityKey]);
+    const value = slot.paint[slot.colorKey];
+
+    if (isMatchExpression(value)) {
+      const property = matchInputProperty(value);
+      for (const { label, raw, output } of matchBranches(value)) {
+        const color = resolveColor(output);
+        if (color !== undefined) {
+          const name =
+            features === undefined || property === undefined || raw === undefined
+              ? undefined
+              : nameForLabel(features, property, raw);
+          classes.push(
+            withName(
+              { id: `${slot.baseId}/${label}`, color, type: slot.type, opacity },
+              name,
+            ),
+          );
+        }
+      }
       continue;
     }
 
-    const layerId =
-      typeof rawLayer['id'] === 'string' && rawLayer['id'] !== ''
-        ? rawLayer['id']
-        : `layer-${String(index)}`;
-    const paint = isRecord(rawLayer['paint']) ? rawLayer['paint'] : {};
-    const sourceId = rawLayer['source'];
-    const features =
-      typeof sourceId === 'string' ? featuresBySource.get(sourceId) : undefined;
-
-    const present = PAINT_PROPERTIES.filter(
-      (property) => paint[property.colorKey] !== undefined,
-    );
-
-    for (const { colorKey, opacityKey, type } of present) {
-      // Only disambiguate by paint type when one layer really does paint more
-      // than one of them, so the common case keeps the bare layer id.
-      const baseId = present.length > 1 ? `${layerId}:${type}` : layerId;
-      const opacity = resolveOpacity(paint[opacityKey]);
-      const value = paint[colorKey];
-
-      if (isMatchExpression(value)) {
-        const property = matchInputProperty(value);
-        for (const { label, raw, output } of matchBranches(value)) {
-          const color = resolveColor(output);
-          if (color !== undefined) {
-            const name =
-              features === undefined || property === undefined || raw === undefined
-                ? undefined
-                : nameForLabel(features, property, raw);
-            classes.push(
-              withName({ id: `${baseId}/${label}`, color, type, opacity }, name),
-            );
-          }
-        }
-        continue;
-      }
-
-      const color = resolveColor(value);
-      if (color !== undefined) {
-        classes.push({ id: baseId, color, type, opacity });
-      }
+    const color = resolveColor(value);
+    if (color !== undefined) {
+      classes.push({ id: slot.baseId, color, type: slot.type, opacity });
     }
   }
 

@@ -25,7 +25,7 @@
     />
   </head>
   <body>
-    <div id="app" class="app" data-sidebar="open">
+    <div id="app" class="app" data-sidebar="open" data-tab="demo">
       <div class="map-wrap">
         <div
           id="map"
@@ -33,8 +33,15 @@
           role="application"
           aria-label="Geological map of Hawaiʻi Island"
         ></div>
+
+        <!--
+          Stands in front of the map in "Your Map" mode, where there is a style
+          to audit but no data to draw: the colours themselves become the view.
+        -->
+        <section id="cover" class="cover" aria-label="Extracted map colours" hidden></section>
+
         <div class="map-caption" aria-live="polite">
-          <p class="map-caption-title">Hawaiʻi Geological Map</p>
+          <p id="map-caption-title" class="map-caption-title">Hawaiʻi Geological Map</p>
           <p id="map-caption-mode" class="map-caption-mode" hidden></p>
         </div>
       </div>
@@ -56,6 +63,7 @@
             <p class="brand-name">CartoAccessibility Studio</p>
             <p class="brand-tagline">Check if your map colours work for everyone</p>
           </div>
+          <div id="tabs-mount"></div>
           <div id="variant-mount"></div>
           <div id="score-mount"></div>
         </header>
