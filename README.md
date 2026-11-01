@@ -103,20 +103,27 @@ const { failing, summary } = runAudit(extractClasses(style));
 Reference values are checked against published sources where they exist
 (Sharma et al. for CIEDE2000, the CSS spec for named colours).
 
-`apps/web` is a Vite + TypeScript app with no framework, and has two modes.
-**Hawaiʻi Demo** is a MapLibre map with the engine running in the browser on
-the very style the map is drawing, so the panel and the map cannot disagree.
-**Your Map** audits a MapLibre style JSON file the reader drops in: the file is
-read with the File API and never leaves the browser, the colours come out
-through the same `extractClasses`, and because a style names its data sources
-without carrying them, the colours themselves become the view — one labelled
-swatch per class, each shown as it reads to normal, protan, deutan and tritan
-vision, with a badge wherever a colour collides with another. The remediated
-style comes back as a download: the reader's own file, recoloured and otherwise
-untouched.
+`apps/web` is a Vite + TypeScript app with no framework. A landing page offers
+two real maps — the Hawaiʻi geology and Manhattan's zoning — and a drop zone for
+a file of the reader's own. Whatever route is taken, the engine runs in the
+browser on the very style being drawn, so the panel and the map cannot disagree.
+
+An uploaded file is read with the File API and never leaves the browser. Three
+things can arrive:
+
+- **A style carrying its data inline** — drawn as a real map, over the same grey
+  basemap the demos use, with its URL-only sources left unfetched.
+- **A style naming its data by URL** — the colours themselves become the view:
+  one labelled swatch per class, each shown as it reads to normal, protan,
+  deutan and tritan vision, with a badge wherever a colour collides.
+- **A bare GeoJSON file** — wrapped in a generated style and sent down the first
+  path, rather than through a pipeline of its own. The colours audited are the
+  file's own simplestyle `fill`/`stroke`/`marker-color` where it has them, a
+  palette keyed to a categorical property where it does not, and a single
+  default otherwise; the panel says which.
 
 Vision-mode preview is an SVG `feColorMatrix` filter — over the map container
-in one mode, over the swatches in the other — built from the same Machado
+in one case, over the swatches in the other — built from the same Machado
 matrices `simulateCVD` uses.
 
 `scripts/fetch-hawaii.ts` runs on Node 24 directly — no loader, no build step —

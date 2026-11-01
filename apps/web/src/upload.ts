@@ -41,6 +41,13 @@ import {
   type ModeView,
 } from './audit-view.js';
 import { download, el, toggleButton } from './dom.js';
+import {
+  geoJsonProblem,
+  isGeoJson,
+  isMapLibreStyle,
+  normaliseGeoJson,
+  styleFromGeoJson,
+} from './geojson-style.js';
 import type { Bbox } from './map.js';
 import type { RemediateReply, RemediateRequest } from './remediate.worker.js';
 import {
@@ -50,8 +57,17 @@ import {
   type UploadedMap,
 } from './uploaded-map.js';
 
-/** A style file big enough to be a mistake rather than a map. */
-const MAX_BYTES = 32 * 1024 * 1024;
+/**
+ * A file big enough to be a mistake rather than a map.
+ *
+ * Higher than it looks: a real GeoJSON of a city's parcels runs to tens of
+ * megabytes, and the Hawaiʻi demo's own geology is 26 MB. This is a guard
+ * against a wrong file, not a budget.
+ */
+const MAX_BYTES = 64 * 1024 * 1024;
+
+/** Past this, a file is worth warning about but not refusing. */
+const SLOW_BYTES = 10 * 1024 * 1024;
 
 /** The one-letter key under each simulated swatch. */
 const MODE_KEYS: Record<VisionMode, string> = {
@@ -85,6 +101,12 @@ interface Loaded {
   drawable: boolean;
   /** The extent of that data, for the opening view. */
   bounds: Bbox | undefined;
+  /**
+   * Set when the style was generated here rather than uploaded, saying where
+   * its colours came from. A reader should not be left thinking the tool is
+   * reporting on choices they made when it is reporting on its own.
+   */
+  generatedNote: string | undefined;
 }
 
 interface UploadState {
@@ -94,6 +116,8 @@ interface UploadState {
   /** Set while the accessible palette is being worked out. */
   remediating: boolean;
   error: string | undefined;
+  /** Something worth saying that is not a failure, such as a large file. */
+  warning: string | undefined;
   variant: UploadVariant;
   activePair: AuditPair | undefined;
   /** The grid card the reader has picked out, if any. */
@@ -150,21 +174,48 @@ function messageOf(error: unknown): string {
  * @throws With a sentence a reader can act on, for every way a file can fail
  *   to be an auditable style.
  */
+/**
+ * Work out what a file is, and get a style out of it either way.
+ *
+ * Two kinds of file arrive here. A MapLibre style says what colours a map
+ * paints and is audited as it stands. A GeoJSON file says what is on the map
+ * and nothing about colour, so a style is generated around it - and from that
+ * point on the two are the same thing to everything downstream.
+ *
+ * @throws With a sentence a reader can act on, for every way a file can fail
+ *   to be either of them.
+ */
 function readStyle(fileName: string, text: string): Loaded {
-  let style: unknown;
+  let parsed: unknown;
   try {
-    style = JSON.parse(text);
+    parsed = JSON.parse(text);
   } catch {
-    throw new Error('That file is not valid JSON, so there is nothing to read in it.');
+    throw new Error('This file contains invalid JSON.');
   }
 
-  if (typeof style !== 'object' || style === null || Array.isArray(style)) {
-    throw new Error('A MapLibre style is a JSON object; this file holds something else.');
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error("This file isn't a MapLibre style or a GeoJSON file.");
   }
-  if (!Array.isArray((style as { layers?: unknown }).layers)) {
-    throw new Error(
-      'That does not look like a MapLibre style: it has no “layers” array to take colours from.',
-    );
+
+  let style: unknown;
+  let generatedNote: string | undefined;
+
+  if (isMapLibreStyle(parsed)) {
+    style = parsed;
+  } else if (isGeoJson(parsed)) {
+    const collection = normaliseGeoJson(parsed);
+    const problem = geoJsonProblem(collection);
+    if (problem === 'no-features') {
+      throw new Error('This GeoJSON file has no features.');
+    }
+    if (problem === 'no-geometry') {
+      throw new Error('None of the features in this file have geometry.');
+    }
+    const generated = styleFromGeoJson(parsed, fileName);
+    style = generated.style;
+    generatedNote = generated.plan.note;
+  } else {
+    throw new Error("This file isn't a MapLibre style or a GeoJSON file.");
   }
 
   const classes = extractClasses(style);
@@ -183,6 +234,7 @@ function readStyle(fileName: string, text: string): Loaded {
     remediated: undefined,
     drawable: hasInlineData(style),
     bounds: inlineBounds(style),
+    generatedNote,
   };
 }
 
@@ -214,6 +266,7 @@ export function createUpload(options: UploadOptions): Upload {
     reading: false,
     remediating: false,
     error: undefined,
+    warning: undefined,
     variant: 'original',
     activePair: undefined,
     activeClassId: undefined,
@@ -257,6 +310,7 @@ export function createUpload(options: UploadOptions): Upload {
     state.reading = false;
     state.remediating = false;
     state.error = undefined;
+    state.warning = undefined;
     state.variant = 'original';
     state.activePair = undefined;
     state.activeClassId = undefined;
@@ -336,7 +390,9 @@ export function createUpload(options: UploadOptions): Upload {
 
   /** Take a style's text, whatever it came from, and audit it. */
   const accept = (fileName: string, text: string): void => {
+    const warning = state.warning;
     reset();
+    state.warning = warning;
     try {
       const loaded = readStyle(fileName, text);
       state.loaded = loaded;
@@ -350,14 +406,19 @@ export function createUpload(options: UploadOptions): Upload {
   };
 
   const openFile = (file: File): void => {
+    const megabytes = file.size / 1024 / 1024;
     if (file.size > MAX_BYTES) {
       reset();
-      state.error = `That file is ${(file.size / 1024 / 1024).toFixed(0)} MB. A style this large is probably not a style.`;
+      state.error = `That file is ${megabytes.toFixed(0)} MB, which is larger than this tool will open.`;
       options.rerender();
       return;
     }
     reset();
     state.reading = true;
+    if (file.size > SLOW_BYTES) {
+      // Said, not enforced: a large file is slow, not wrong.
+      state.warning = `This file is large (${megabytes.toFixed(1)} MB). Processing may be slow.`;
+    }
     options.rerender();
     void file
       .text()
@@ -441,6 +502,10 @@ export function createUpload(options: UploadOptions): Upload {
       const { remediated } = loaded;
 
       const body: HTMLElement[] = [
+        ...(loaded.generatedNote === undefined
+          ? []
+          : [notePanel('Generated style', loaded.generatedNote)]),
+        ...(state.warning === undefined ? [] : [notePanel('Heads up', state.warning)]),
         filePanel(loaded, view, startOver),
         clashPanel({
           view,
@@ -678,6 +743,14 @@ function readingPanel(state: UploadState): HTMLElement {
   return section;
 }
 
+/** Something the reader should know that is not a failure. */
+function notePanel(label: string, text: string): HTMLElement {
+  const section = el('section', 'panel note-card');
+  section.append(el('p', 'note-card-label', label));
+  section.append(el('p', 'note-card-text', text));
+  return section;
+}
+
 function errorPanels(error: string | undefined): HTMLElement[] {
   if (error === undefined) {
     return [];
@@ -728,7 +801,7 @@ function exportButtons(loaded: Loaded, remediated: Remediated): HTMLElement[] {
   button.type = 'button';
   button.addEventListener('click', () => {
     download(
-      remediatedName(loaded.fileName),
+      remediatedName(loaded.fileName, loaded.generatedNote !== undefined),
       JSON.stringify(remediated.style, null, 2) + '\n',
       'application/json',
     );
@@ -738,15 +811,26 @@ function exportButtons(loaded: Loaded, remediated: Remediated): HTMLElement[] {
     el(
       'p',
       'secondary-hint',
-      `Your own file with ${String(remediated.changed)} colours replaced; nothing else touched.`,
+      loaded.generatedNote === undefined
+        ? `Your own file with ${String(remediated.changed)} colours replaced; nothing else touched.`
+        : `The generated style with ${String(remediated.changed)} colours replaced, your data still inside it.`,
     ),
   ];
 }
 
-/** `city.json` comes back as `city.remediated.json`. */
-function remediatedName(fileName: string): string {
+/**
+ * `city.json` comes back as `city.remediated.json`.
+ *
+ * A GeoJSON upload comes back as `city.style.json`, because what was
+ * generated around it is a MapLibre style and the extension should say so.
+ */
+function remediatedName(fileName: string, generated: boolean): string {
   const dot = fileName.lastIndexOf('.');
-  return dot <= 0
-    ? `${fileName}.remediated.json`
-    : `${fileName.slice(0, dot)}.remediated${fileName.slice(dot)}`;
+  const base = dot <= 0 ? fileName : fileName.slice(0, dot);
+  const extension = dot <= 0 ? '.json' : fileName.slice(dot);
+  // What comes back from a GeoJSON upload is a style, not the data: calling it
+  // `.geojson` would hand the reader a file nothing will open as one.
+  return generated
+    ? `${base}.style.json`
+    : `${base}.remediated${extension}`;
 }

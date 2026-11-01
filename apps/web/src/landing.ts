@@ -65,14 +65,14 @@ function strip(label: string, colours: readonly RGB[]): HTMLElement {
 function dropZone(onFile: (file: File) => void): HTMLElement {
   const zone = el('div', 'drop-zone');
   zone.append(
-    el('p', 'drop-title', 'Drop a MapLibre style JSON here'),
+    el('p', 'drop-title', 'Drop a MapLibre style or GeoJSON file here'),
     el('p', 'drop-hint', 'Nothing is uploaded — every colour is measured on your device'),
   );
 
   const picker = el('label', 'drop-button');
   const input = el('input', 'visually-hidden');
   input.type = 'file';
-  input.accept = '.json,application/json';
+  input.accept = '.json,.geojson,application/json,application/geo+json';
   input.addEventListener('change', () => {
     const file = input.files?.[0];
     if (file !== undefined) {
@@ -176,8 +176,9 @@ export function renderLanding(root: HTMLElement, options: LandingOptions): void 
     el(
       'p',
       'upload-note',
-      'Styles with embedded map data will display as an interactive map. ' +
-        'Styles referencing external data will show a colour scheme audit.',
+      'A GeoJSON file, or a style with embedded map data, will display as an ' +
+        'interactive map. A style referencing external data will show a colour ' +
+        'scheme audit.',
     ),
   );
   page.append(upload);

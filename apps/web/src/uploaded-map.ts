@@ -33,6 +33,7 @@ import {
   geoJsonBounds,
   hasExtent,
   merge,
+  padBox,
   type Bbox,
   type MapLibreMap,
   type StyleSpecification,
@@ -85,7 +86,9 @@ export function inlineBounds(style: unknown): Bbox | undefined {
       box = box === undefined ? found : merge(box, found);
     }
   }
-  return box;
+  // A box fitted exactly to the data puts the outermost feature hard against
+  // the edge of the window.
+  return box === undefined ? undefined : padBox(box, 0.05);
 }
 
 /** True when the style already paints a raster backdrop of its own. */

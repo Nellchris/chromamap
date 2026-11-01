@@ -1468,6 +1468,30 @@ details[open] > .disclosure-summary::before {
 }
 
 /* ------------------------------------------------------------------ *
+ * Note cards: something worth knowing that is not a failure
+ * ------------------------------------------------------------------ */
+
+.note-card {
+  border-left: 3px solid var(--accent);
+}
+
+.note-card-label {
+  margin: 0 0 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--accent);
+}
+
+.note-card-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------------------------ *
  * Clash cards: two paint chips, two names, one reason
  * ------------------------------------------------------------------ */
 

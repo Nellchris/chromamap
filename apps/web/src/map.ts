@@ -27,27 +27,12 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 
 setWorkerUrl(maplibreWorkerUrl);
 
-/** The id the app's own basemap source and layer go in under. */
-export const BASEMAP_SOURCE_ID = 'carto-a11y-basemap';
-export const BASEMAP_LAYER_ID = 'carto-a11y-basemap-layer';
-
-/**
- * The neutral canvas every map here is drawn over.
- *
- * The same tiles the two demos' styles name, kept here as well so a style a
- * reader brings can be given a backdrop without one. Deliberately grey: this
- * is a tool for judging colour, and a basemap with colours of its own would
- * shift how everything above it reads.
- */
-export const BASEMAP_SOURCE = {
-  type: 'raster',
-  tiles: [
-    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-  ],
-  tileSize: 256,
-  maxzoom: 16,
-  attribution: 'Esri, HERE, Garmin, © OpenStreetMap contributors',
-} as const;
+export {
+  BASEMAP_LAYER,
+  BASEMAP_LAYER_ID,
+  BASEMAP_SOURCE,
+  BASEMAP_SOURCE_ID,
+} from './basemap.js';
 
 export interface Bbox {
   west: number;
@@ -105,21 +90,52 @@ export function growBox(box: Bbox, coordinates: readonly unknown[]): void {
   }
 }
 
-/** The extent of a GeoJSON object, whatever shape its features are. */
+/** Grow a box, counting every longitude as if it were east of the antimeridian. */
+function growShifted(box: Bbox, coordinates: readonly unknown[]): void {
+  const [first, second] = coordinates;
+  if (typeof first === 'number' && typeof second === 'number') {
+    const lon = first < 0 ? first + 360 : first;
+    box.west = Math.min(box.west, lon);
+    box.east = Math.max(box.east, lon);
+    box.south = Math.min(box.south, second);
+    box.north = Math.max(box.north, second);
+    return;
+  }
+  for (const child of coordinates) {
+    if (Array.isArray(child)) {
+      growShifted(box, child as readonly unknown[]);
+    }
+  }
+}
+
+/**
+ * The extent of a GeoJSON object, whatever shape its features are.
+ *
+ * Walks anything the format allows - a FeatureCollection, a lone Feature, a
+ * bare geometry, a GeometryCollection, and every `Multi*` nesting - by
+ * recursing to the first pair of numbers rather than branching on type.
+ *
+ * Data either side of the antimeridian looks, to a naive box, like data
+ * spanning the whole planet: a line from Fiji to Samoa would be framed as the
+ * entire Pacific the wrong way round. So the extent is measured twice, once
+ * with longitudes as given and once with the negative ones moved past +180,
+ * and the narrower answer wins.
+ */
 export function geoJsonBounds(data: unknown): Bbox {
-  const box = emptyBox();
+  const plain = emptyBox();
+  const shifted = emptyBox();
   const walk = (node: unknown): void => {
     if (typeof node !== 'object' || node === null) {
       return;
     }
     const record = node as Record<string, unknown>;
-    const coordinates = (record['geometry'] as { coordinates?: unknown } | undefined)
-      ?.coordinates;
-    if (Array.isArray(coordinates)) {
-      growBox(box, coordinates);
+    const geometry = record['geometry'];
+    if (typeof geometry === 'object' && geometry !== null) {
+      walk(geometry);
     }
     if (Array.isArray(record['coordinates'])) {
-      growBox(box, record['coordinates']);
+      growBox(plain, record['coordinates']);
+      growShifted(shifted, record['coordinates']);
     }
     for (const key of ['features', 'geometries'] as const) {
       const children = record[key];
@@ -131,7 +147,33 @@ export function geoJsonBounds(data: unknown): Bbox {
     }
   };
   walk(data);
-  return box;
+
+  if (!hasExtent(plain)) {
+    return plain;
+  }
+  const spans = plain.east - plain.west;
+  return spans > 180 && shifted.east - shifted.west < spans ? shifted : plain;
+}
+
+/**
+ * Open a box out by a fraction of its own size.
+ *
+ * A box fitted exactly to the data puts the outermost feature against the edge
+ * of the window. A zero-sized box - one point, or one vertical line - gets a
+ * small fixed margin instead, since a fraction of nothing is nothing.
+ */
+export function padBox(box: Bbox, fraction: number, minimum = 0.001): Bbox {
+  if (!hasExtent(box)) {
+    return box;
+  }
+  const padX = Math.max((box.east - box.west) * fraction, minimum);
+  const padY = Math.max((box.north - box.south) * fraction, minimum);
+  return {
+    west: box.west - padX,
+    east: box.east + padX,
+    south: Math.max(-90, box.south - padY),
+    north: Math.min(90, box.north + padY),
+  };
 }
 
 /** True when the panel is a sheet over the map rather than a column beside it. */
