@@ -35,6 +35,13 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Turns Pages on for the repository the first time this runs, so the
+      # deployment needs nothing clicked in Settings beforehand.
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - name: Install
         run: pnpm install --frozen-lockfile
 

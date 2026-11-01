@@ -18,7 +18,7 @@ export default defineConfig({
    * own GeoJSON sources are resolved against that same base at load time, so
    * this one line is the whole of the configuration.
    */
-  base: '/carto-a11y-studio/',
+  base: '/chromamap/',
   publicDir: fileURLToPath(new URL('../../demos', import.meta.url)),
   resolve: {
     alias: {
