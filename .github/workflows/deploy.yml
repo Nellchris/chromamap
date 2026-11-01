@@ -35,12 +35,14 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # Turns Pages on for the repository the first time this runs, so the
-      # deployment needs nothing clicked in Settings beforehand.
+      # Reads the repository's Pages configuration. It does not turn Pages on:
+      # `enablement: true` needs a token with admin rights, which GITHUB_TOKEN
+      # is not, so it fails on a repository where Pages has never been set up.
+      # Enable it once, by hand under Settings > Pages > Source: GitHub
+      # Actions, or with:
+      #   gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Install
         run: pnpm install --frozen-lockfile
