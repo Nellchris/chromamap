@@ -176,8 +176,8 @@ export function renderLanding(root: HTMLElement, options: LandingOptions): void 
     el(
       'p',
       'upload-note',
-      'An uploaded style is audited as a colour scheme: a style file carries ' +
-        'colours, not the data to draw them on.',
+      'Styles with embedded map data will display as an interactive map. ' +
+        'Styles referencing external data will show a colour scheme audit.',
     ),
   );
   page.append(upload);

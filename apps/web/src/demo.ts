@@ -8,23 +8,7 @@
  * what the map shows cannot drift apart.
  */
 
-// maplibre-gl 6 has no default export, and its `Map` would shadow the built-in
-// one this file uses, so it comes in under its own alias.
-import {
-  MapLibreMap,
-  NavigationControl,
-  Popup,
-  ScaleControl,
-  setWorkerUrl,
-  type LngLatBoundsLike,
-  type StyleSpecification,
-} from 'maplibre-gl';
-// MapLibre finds its worker with `new URL('./maplibre-gl-worker.mjs',
-// import.meta.url)`. Once a bundler has moved the module, that URL points at
-// a file which is not there, and the map renders its background and nothing
-// else. Handing Vite the worker as an asset and naming it explicitly is what
-// keeps the map working in a build as well as in dev.
-import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import { Popup } from 'maplibre-gl';
 
 import {
   extractBackground,
@@ -48,8 +32,15 @@ import {
   type ModeView,
 } from './audit-view.js';
 import { disclosure, download, el, toggleButton } from './dom.js';
-
-setWorkerUrl(maplibreWorkerUrl);
+import {
+  createMap,
+  fitBox,
+  growBox,
+  merge,
+  type Bbox,
+  type MapLibreMap,
+  type StyleSpecification,
+} from './map.js';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -207,41 +198,9 @@ type VariantKey = 'original' | 'accessible';
 /** The id of the highlight layer this app adds on top of a demo style. */
 const HIGHLIGHT_LAYER = 'carto-a11y-highlight';
 
-interface Bbox {
-  west: number;
-  south: number;
-  east: number;
-  north: number;
-}
-
 /* ------------------------------------------------------------------ *
  * Demo data
  * ------------------------------------------------------------------ */
-
-/**
- * Grow a box to hold every position in a coordinate tree.
- *
- * A Polygon nests its positions two deep and a MultiPolygon three, and this
- * data has both. Recursing to the first pair of numbers covers either without
- * having to branch on the geometry type - and, more to the point, without
- * mistaking a MultiPolygon's ring for a position, which would feed arrays to
- * `Math.min` and turn the whole island's bounds into NaN.
- */
-function growBox(box: Bbox, coordinates: readonly unknown[]): void {
-  const [first, second] = coordinates;
-  if (typeof first === 'number' && typeof second === 'number') {
-    box.west = Math.min(box.west, first);
-    box.east = Math.max(box.east, first);
-    box.south = Math.min(box.south, second);
-    box.north = Math.max(box.north, second);
-    return;
-  }
-  for (const child of coordinates) {
-    if (Array.isArray(child)) {
-      growBox(box, child as readonly unknown[]);
-    }
-  }
-}
 
 /** Bounding box per class, so a clash can be zoomed to. */
 function featureBounds(geojson: unknown, property: string): Map<string, Bbox> {
@@ -294,43 +253,6 @@ function nameOf(cls: MapClass): string {
   const key = classKey(cls.id);
   const name = humaniseClassId(cls);
   return key === undefined || name === key ? name : `${name} (${key})`;
-}
-
-/** True when the panel is a sheet over the map rather than a column beside it. */
-export function isSheetLayout(): boolean {
-  return window.matchMedia('(max-width: 760px)').matches;
-}
-
-/**
- * Padding for any `fitBounds`, allowing for the panel.
- *
- * On a wide screen the panel sits beside the map and takes no space from it.
- * On a narrow one it is a sheet lying over the bottom of the map, so framing
- * the island against the full viewport would hide most of it behind the sheet.
- */
-function framePadding(sidebar: HTMLElement): {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-} {
-  const base = { top: 24, right: 24, bottom: 24, left: 24 };
-  if (!isSheetLayout()) {
-    return base;
-  }
-  // However far up the screen the sheet currently reaches is how much of the
-  // map it hides, whether it is peeking or fully up.
-  const covered = Math.max(0, window.innerHeight - sidebar.getBoundingClientRect().top);
-  return { ...base, top: 56, bottom: Math.round(covered) + 16 };
-}
-
-function merge(a: Bbox, b: Bbox): Bbox {
-  return {
-    west: Math.min(a.west, b.west),
-    south: Math.min(a.south, b.south),
-    east: Math.max(a.east, b.east),
-    north: Math.max(a.north, b.north),
-  };
 }
 
 /* ------------------------------------------------------------------ *
@@ -495,29 +417,7 @@ export async function createDemo(options: DemoOptions): Promise<Demo> {
     showAllClashes: false,
   };
 
-  const map = new MapLibreMap({
-    container: options.mapEl,
-    style: variants[0]?.style as StyleSpecification,
-    attributionControl: { compact: true },
-  });
-  map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
-  map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-right');
-
-  // Collapsing the sidebar changes the map's box without changing the window,
-  // so MapLibre has to be told; this covers window resizes too.
-  new ResizeObserver(() => {
-    map.resize();
-  }).observe(options.mapEl);
-
-  if (import.meta.env.DEV) {
-    // Handy when poking at the demo from the console; never shipped.
-    (globalThis as unknown as { cartoMap?: MapLibreMap }).cartoMap = map;
-  }
-  map.on('error', (event) => {
-    // A missing glyph server or a malformed source would otherwise fail
-    // silently and leave an empty blue rectangle.
-    console.error('[map]', event.error?.message ?? event);
-  });
+  const map = createMap(options.mapEl, variants[0]?.style);
 
   // Re-added after every style swap, since setStyle takes the old layers away.
   map.on('style.load', () => {
@@ -534,13 +434,7 @@ export async function createDemo(options: DemoOptions): Promise<Demo> {
     const first = boxes[0];
     if (first !== undefined) {
       const box = boxes.reduce(merge, first);
-      map.fitBounds(
-        [
-          [box.west, box.south],
-          [box.east, box.north],
-        ],
-        { padding: framePadding(options.sidebar), duration: 0 },
-      );
+      fitBox(map, box, options.sidebar);
     }
   });
 
@@ -748,21 +642,10 @@ function focusPair(
     return;
   }
 
-  const box = boxes.reduce(merge);
-  const bounds: LngLatBoundsLike = [
-    [box.west, box.south],
-    [box.east, box.north],
-  ];
-  const padding = framePadding(sidebar);
-  map.fitBounds(bounds, {
-    padding: {
-      ...padding,
-      top: padding.top + 32,
-      right: padding.right + 32,
-      left: padding.left + 32,
-    },
+  fitBox(map, boxes.reduce(merge), sidebar, {
     duration: 700,
     maxZoom: 11,
+    extraPadding: 32,
   });
 }
 

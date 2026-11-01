@@ -41,7 +41,14 @@ import {
   type ModeView,
 } from './audit-view.js';
 import { download, el, toggleButton } from './dom.js';
+import type { Bbox } from './map.js';
 import type { RemediateReply, RemediateRequest } from './remediate.worker.js';
+import {
+  createUploadedMap,
+  hasInlineData,
+  inlineBounds,
+  type UploadedMap,
+} from './uploaded-map.js';
 
 /** A style file big enough to be a mistake rather than a map. */
 const MAX_BYTES = 32 * 1024 * 1024;
@@ -71,6 +78,13 @@ interface Loaded {
   style: unknown;
   original: AuditView;
   remediated: Remediated | undefined;
+  /**
+   * True when the style carries its own GeoJSON, so there is a real map in
+   * the file and not only a palette.
+   */
+  drawable: boolean;
+  /** The extent of that data, for the opening view. */
+  bounds: Bbox | undefined;
 }
 
 interface UploadState {
@@ -88,6 +102,10 @@ interface UploadState {
 }
 
 export interface UploadOptions {
+  /** The one map container, shared with the demos. */
+  mapEl: HTMLElement;
+  /** The panel, so a map can be framed around rather than behind it. */
+  sidebar: HTMLElement;
   /** Ask the shell to render again, after this mode has changed its state. */
   rerender: () => void;
   /**
@@ -101,6 +119,15 @@ export interface UploadOptions {
 
 export interface Upload {
   view(mode: VisionMode): ModeView;
+  /**
+   * Take the map container, if the loaded style has anything to draw.
+   *
+   * Only one map may live in it at a time, so the shell hands ownership over
+   * when this mode comes to the front and takes it back when a demo does.
+   */
+  claimMap(): void;
+  /** Give the container back. */
+  releaseMap(): void;
   /** Audit a style the landing page has read for us. */
   open(fileName: string, text: string): void;
   /** Read a file the landing page was handed, then audit it. */
@@ -154,6 +181,8 @@ function readStyle(fileName: string, text: string): Loaded {
     style,
     original: auditView(classes, extractBackground(style)),
     remediated: undefined,
+    drawable: hasInlineData(style),
+    bounds: inlineBounds(style),
   };
 }
 
@@ -194,7 +223,35 @@ export function createUpload(options: UploadOptions): Upload {
   /** Bumped per file, so a slow worker's answer about an old file is dropped. */
   let generation = 0;
 
+  /** The map, when this mode holds the container and has data to draw. */
+  let drawn: UploadedMap | undefined;
+
+  const releaseMap = (): void => {
+    drawn?.destroy();
+    drawn = undefined;
+  };
+
+  /**
+   * Draw the loaded style, if it brought data and we hold the container.
+   *
+   * Called both when a file arrives and when the shell hands the container
+   * back after a demo has had it, so the map comes back on returning here.
+   */
+  const claimMap = (): void => {
+    const loaded = state.loaded;
+    if (drawn !== undefined || loaded === undefined || !loaded.drawable) {
+      return;
+    }
+    drawn = createUploadedMap({
+      container: options.mapEl,
+      sidebar: options.sidebar,
+      style: activeStyle(loaded),
+      bounds: loaded.bounds,
+    });
+  };
+
   const reset = (): void => {
+    releaseMap();
     generation += 1;
     state.loaded = undefined;
     state.reading = false;
@@ -283,6 +340,7 @@ export function createUpload(options: UploadOptions): Upload {
     try {
       const loaded = readStyle(fileName, text);
       state.loaded = loaded;
+      claimMap();
       startRemediation(loaded);
       options.rerender();
     } catch (error) {
@@ -313,6 +371,12 @@ export function createUpload(options: UploadOptions): Upload {
       });
   };
 
+  /** The style the map should be painting: whichever palette is on show. */
+  const activeStyle = (loaded: Loaded): unknown =>
+    state.variant === 'accessible' && loaded.remediated !== undefined
+      ? loaded.remediated.style
+      : loaded.style;
+
   /** The audit the panel is currently showing. */
   const activeView = (loaded: Loaded): AuditView =>
     state.variant === 'accessible' && loaded.remediated !== undefined
@@ -326,6 +390,11 @@ export function createUpload(options: UploadOptions): Upload {
     state.variant = variant;
     state.activePair = undefined;
     state.showAllClashes = false;
+    // Only the paint colours differ, and setStyle keeps the camera, so the
+    // map recolours in place rather than jumping.
+    if (state.loaded !== undefined) {
+      drawn?.setStyle(activeStyle(state.loaded));
+    }
     options.rerender();
   };
 
@@ -350,6 +419,8 @@ export function createUpload(options: UploadOptions): Upload {
   return {
     open: accept,
     openFile,
+    claimMap,
+    releaseMap,
     isLoaded: () => state.loaded !== undefined || state.reading,
     view(mode) {
       if (state.loaded === undefined) {
@@ -406,8 +477,8 @@ export function createUpload(options: UploadOptions): Upload {
       return {
         caption:
           state.variant === 'accessible' && remediated !== undefined
-            ? `Your map · ${loaded.fileName} · accessible palette`
-            : `Your map · ${loaded.fileName}`,
+            ? `${loaded.fileName} · accessible palette`
+            : loaded.fileName,
         header: [
           ...(remediated === undefined
             ? []
@@ -434,16 +505,20 @@ export function createUpload(options: UploadOptions): Upload {
           ),
         ],
         body,
-        cover: [
-          swatchGrid({
-            view,
-            mode,
-            fileName: loaded.fileName,
-            activeClassId: state.activeClassId,
-            onClass: selectClass,
-            onReset: startOver,
-          }),
-        ],
+        // A style that brought its data gets a map, and the shell leaves the
+        // map area uncovered; one that did not gets the colours themselves.
+        cover: loaded.drawable
+          ? []
+          : [
+              swatchGrid({
+                view,
+                mode,
+                fileName: loaded.fileName,
+                activeClassId: state.activeClassId,
+                onClass: selectClass,
+                onReset: startOver,
+              }),
+            ],
         vision: true,
       };
     },

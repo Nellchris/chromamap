@@ -16,7 +16,8 @@
 import { VISION_MODE_LABELS, type VisionMode } from '@carto-a11y/core';
 
 import { visionPanel, type ModeView } from './audit-view.js';
-import { createDemo, DEMOS, isSheetLayout, type Demo, type DemoKey } from './demo.js';
+import { createDemo, DEMOS, type Demo, type DemoKey } from './demo.js';
+import { isSheetLayout } from './map.js';
 import { el, installFilters } from './dom.js';
 import { renderLanding } from './landing.js';
 import { createUpload, type Upload } from './upload.js';
@@ -102,6 +103,8 @@ export async function startApp(root: HTMLElement): Promise<void> {
   let mode: VisionMode = 'normal';
   /** The demo whose map currently owns the container, if any. */
   let active: { key: DemoKey; demo: Demo } | undefined;
+  /** Which of the three things is holding the map container. */
+  let held: Target | undefined;
   let loading: DemoKey | undefined;
   let demoError: string | undefined;
 
@@ -164,11 +167,37 @@ export async function startApp(root: HTMLElement): Promise<void> {
   };
 
   const upload: Upload = createUpload({
+    mapEl,
+    sidebar,
     rerender: renderAudit,
     onLeave: () => {
       goHome(true);
     },
   });
+
+  /**
+   * Hand the map container to whoever is about to use it.
+   *
+   * There is one `#map` on the page and three things that might want it - two
+   * demos and an uploaded style that carries its own data. Whoever had it
+   * last gives it up first: two live maps on one element leaves a canvas
+   * neither of them owns.
+   */
+  const claimMapFor = (next: Target): void => {
+    if (held === next) {
+      return;
+    }
+    if (held === 'upload') {
+      upload.releaseMap();
+    } else if (held !== undefined) {
+      active?.demo.destroy();
+      active = undefined;
+    }
+    held = next;
+    if (next === 'upload') {
+      upload.claimMap();
+    }
+  };
 
   /** Show whichever screen `view` names, and nothing of the other. */
   const paint = (): void => {
@@ -185,9 +214,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
     if (active?.key === key || loading === key) {
       return;
     }
-    // One map at a time: the previous demo gives the container back first.
-    active?.demo.destroy();
-    active = undefined;
+    claimMapFor(key);
     loading = key;
     demoError = undefined;
     void createDemo({ spec: DEMOS[key], mapEl, sidebar, rerender: renderAudit })
@@ -219,7 +246,9 @@ export async function startApp(root: HTMLElement): Promise<void> {
     view = 'audit';
     const state: AuditHistoryState = { carto: 'audit', target: next };
     history.pushState(state, '');
-    if (next !== 'upload') {
+    if (next === 'upload') {
+      claimMapFor('upload');
+    } else {
       openDemo(next);
     }
     paint();
@@ -255,7 +284,9 @@ export async function startApp(root: HTMLElement): Promise<void> {
     if (isAuditState(event.state)) {
       target = event.state.target;
       view = 'audit';
-      if (target !== 'upload') {
+      if (target === 'upload') {
+        claimMapFor('upload');
+      } else {
         openDemo(target);
       }
       paint();
