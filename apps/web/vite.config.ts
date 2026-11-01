@@ -11,6 +11,14 @@ import { defineConfig } from 'vite';
  * its `../data/units.geojson` still resolves to the file beside it.
  */
 export default defineConfig({
+  /*
+   * GitHub Pages serves a project site from /<repo>/, so every asset the page
+   * asks for is prefixed. Nothing in the app hard-codes a leading slash: the
+   * demos' URLs are built from `import.meta.env.BASE_URL`, and the styles'
+   * own GeoJSON sources are resolved against that same base at load time, so
+   * this one line is the whole of the configuration.
+   */
+  base: '/carto-a11y-studio/',
   publicDir: fileURLToPath(new URL('../../demos', import.meta.url)),
   resolve: {
     alias: {

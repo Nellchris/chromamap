@@ -1,5 +1,5 @@
 /**
- * @carto-a11y/core — the CartoAccessibility-Studio engine.
+ * @carto-a11y/core — the ChromaMap engine.
  *
  * Pure, DOM-free building blocks for auditing web-map styles.
  */

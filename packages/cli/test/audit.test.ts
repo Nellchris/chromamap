@@ -61,7 +61,7 @@ describe('audit: the fixture style', () => {
     const result = run(['audit', STYLE_PATH], io);
     expect(result.output).toBe(
       [
-        'CartoAccessibility Audit',
+        'ChromaMap Audit',
         `Source: ${STYLE_PATH}`,
         '',
         'Classes found: 4',

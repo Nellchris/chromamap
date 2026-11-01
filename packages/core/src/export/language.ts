@@ -72,7 +72,7 @@ export const PREVALENCE_SOURCE = {
 } as const;
 
 /** What the tool is called, wherever it has to name itself. */
-export const TOOL_NAME = 'CartoAccessibility Studio';
+export const TOOL_NAME = 'ChromaMap';
 
 /** The version a report stamps itself with. Tracks the workspace version. */
 export const TOOL_VERSION = '0.0.0';

@@ -4,6 +4,7 @@
 
 import {
   DEFAULT_THRESHOLD,
+  TOOL_NAME,
   VISION_MODES,
   extractClasses,
   generateHtmlReport,
@@ -205,7 +206,7 @@ export function renderSummary(data: ReportData, threshold: number): string {
   const modeCount = data.options.modes?.length ?? VISION_MODES.length;
 
   const lines: string[] = [
-    'CartoAccessibility Audit',
+    `${TOOL_NAME} Audit`,
     `Source: ${data.styleSource}`,
     '',
     `Classes found: ${String(classes.length)}`,

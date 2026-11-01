@@ -1,4 +1,4 @@
-# CartoAccessibility-Studio
+# ChromaMap
 
 A web-map accessibility and colour-vision auditing tool: check map styles for
 WCAG contrast, colour-vision-deficiency confusion and legibility problems

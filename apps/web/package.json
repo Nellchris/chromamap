@@ -2,7 +2,7 @@
   "name": "@carto-a11y/web",
   "version": "0.0.0",
   "private": true,
-  "description": "CartoAccessibility-Studio browser UI (Vite + TypeScript).",
+  "description": "ChromaMap browser UI (Vite + TypeScript).",
   "license": "MIT",
   "type": "module",
   "scripts": {

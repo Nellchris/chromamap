@@ -1,7 +1,7 @@
 {
   "name": "@carto-a11y/cli",
   "version": "0.0.0",
-  "description": "Command-line interface for CartoAccessibility-Studio audits.",
+  "description": "Command-line interface for ChromaMap audits.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",

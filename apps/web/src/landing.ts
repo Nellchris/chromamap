@@ -8,7 +8,7 @@
  * problem already.
  */
 
-import { rgbToHex, simulateCVD, type RGB } from '@carto-a11y/core';
+import { TOOL_NAME, rgbToHex, simulateCVD, type RGB } from '@carto-a11y/core';
 
 import { DEMOS, type DemoKey, type DemoSpec } from './demo.js';
 import { el } from './dom.js';
@@ -139,7 +139,7 @@ export function renderLanding(root: HTMLElement, options: LandingOptions): void 
 
   const header = el('header', 'landing-head');
   header.append(
-    el('p', 'landing-brand', 'CartoAccessibility Studio'),
+    el('p', 'landing-brand', TOOL_NAME),
     el(
       'h1',
       'landing-tagline',
@@ -172,6 +172,14 @@ export function renderLanding(root: HTMLElement, options: LandingOptions): void 
 
   const upload = el('section', 'landing-upload');
   upload.append(dropZone(options.onFile));
+  upload.append(
+    el(
+      'p',
+      'upload-note',
+      'An uploaded style is audited as a colour scheme: a style file carries ' +
+        'colours, not the data to draw them on.',
+    ),
+  );
   page.append(upload);
 
   const demos = el('section', 'landing-demos');

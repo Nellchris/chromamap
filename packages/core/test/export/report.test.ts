@@ -490,7 +490,7 @@ describe('generateHtmlReport: provenance and print', () => {
   const html = generateHtmlReport(report(CONFUSABLE));
 
   it('stamps the tool and version', () => {
-    expect(html).toContain('CartoAccessibility Studio');
+    expect(html).toContain('ChromaMap');
     expect(html).toContain(TOOL_VERSION);
   });
 

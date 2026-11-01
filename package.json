@@ -2,7 +2,7 @@
   "name": "carto-a11y-studio",
   "version": "0.0.0",
   "private": true,
-  "description": "CartoAccessibility-Studio — web-map accessibility and colour-vision auditing.",
+  "description": "ChromaMap — web-map accessibility and colour-vision auditing.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.34.8",
