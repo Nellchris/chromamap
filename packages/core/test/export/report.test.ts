@@ -170,7 +170,8 @@ describe('generateHtmlReport: document', () => {
   });
 
   it('says who the tool is for', () => {
-    expect(html).toContain('About 8% of men and 0.5% of women are affected.');
+    expect(html).toContain('about 8% of men and 0.5% of women');
+    expect(html).toContain('Northern European descent');
   });
 });
 
@@ -495,6 +496,11 @@ describe('generateHtmlReport: provenance and print', () => {
 
   it('takes a version from the caller when given one', () => {
     expect(generateHtmlReport({ ...report(CONFUSABLE), toolVersion: '9.9.9' })).toContain('9.9.9');
+  });
+
+  it('cites the prevalence figure it quotes', () => {
+    expect(html).toContain('Birch, J. (2012)');
+    expect(html).toContain('doi.org/10.1364/JOSAA.29.000313');
   });
 
   it('carries print rules, and keeps the swatches inked', () => {

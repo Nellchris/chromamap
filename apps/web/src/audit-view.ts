@@ -12,7 +12,7 @@
  */
 
 import {
-  ABOUT_TEXT,
+  PREVALENCE_SOURCE,
   VISION_MODES,
   VISION_MODE_PLAIN,
   compositeOver,
@@ -484,8 +484,24 @@ export function downloadsPanel(options: DownloadsOptions): HTMLElement {
 export function funFactPanel(): HTMLElement {
   const section = el('section', 'panel fact');
   section.append(el('p', 'fact-label', 'Did you know?'));
-  section.append(
-    el('p', 'fact-text', `${ABOUT_TEXT} That is roughly 300 million people worldwide.`),
+
+  const text = el('p', 'fact-text');
+  text.append(
+    el(
+      'span',
+      undefined,
+      'About 8% of men and 0.5% of women of Northern European descent have ' +
+        'red-green colour vision deficiency — roughly one man in twelve. ',
+    ),
   );
+  // The figure is someone's finding, not folklore, and the panel says whose.
+  const cite = el('a', 'fact-cite', `(${PREVALENCE_SOURCE.short})`);
+  cite.href = PREVALENCE_SOURCE.doi;
+  cite.target = '_blank';
+  cite.rel = 'noreferrer';
+  cite.title = PREVALENCE_SOURCE.full;
+  text.append(cite);
+
+  section.append(text);
   return section;
 }

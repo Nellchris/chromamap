@@ -189,7 +189,7 @@ export function renderLanding(root: HTMLElement, options: LandingOptions): void 
 
   const footer = el('footer', 'landing-foot');
   footer.append(
-    el('p', undefined, 'Built by Nelson'),
+    el('p', 'landing-foot-name', 'Built by Nelson Christopher, Geospatial Analyst'),
     el(
       'p',
       'landing-foot-note',

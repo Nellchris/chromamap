@@ -47,11 +47,29 @@ export const VISION_MODE_SHORT: Record<VisionMode, string> = {
   tritan: 'Blue-yellow blind viewers',
 };
 
-/** One line explaining who this is for, used wherever there is room for it. */
+/**
+ * One line explaining who this is for, used wherever there is room for it.
+ *
+ * The figures are Birch's, and so are their limits: they are for *red-green*
+ * deficiency in people of Northern European descent. Birch's paper is a survey
+ * of how the rate varies between populations, so quoting the European figure
+ * as a world one would contradict the very source it comes from.
+ */
 export const ABOUT_TEXT =
   'This tool checks whether map colours remain distinguishable for people ' +
-  'with colour vision deficiency (colour blindness). About 8% of men and ' +
-  '0.5% of women are affected.';
+  'with colour vision deficiency (colour blindness). Red-green deficiency ' +
+  'affects about 8% of men and 0.5% of women of Northern European descent.';
+
+/** Where the prevalence figures in {@link ABOUT_TEXT} come from. */
+export const PREVALENCE_SOURCE = {
+  /** How the citation reads inline. */
+  short: 'Birch, 2012',
+  /** The full reference, for a report's footer. */
+  full:
+    'Birch, J. (2012). Worldwide prevalence of red-green color deficiency. ' +
+    'Journal of the Optical Society of America A, 29(3), 313–320.',
+  doi: 'https://doi.org/10.1364/JOSAA.29.000313',
+} as const;
 
 /** What the tool is called, wherever it has to name itself. */
 export const TOOL_NAME = 'CartoAccessibility Studio';

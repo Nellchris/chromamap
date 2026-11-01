@@ -4,6 +4,7 @@ import { VISION_MODES, runAudit } from '../../src/audit/engine.js';
 import { parseColor } from '../../src/color/parse.js';
 import {
   ABOUT_TEXT,
+  PREVALENCE_SOURCE,
   VISION_MODE_AUDIENCE,
   VISION_MODE_LABELS,
   VISION_MODE_SHORT,
@@ -43,6 +44,23 @@ describe('vision mode wording', () => {
     expect(ABOUT_TEXT).toContain('colour blindness');
     expect(ABOUT_TEXT).toContain('8% of men');
     expect(ABOUT_TEXT).not.toContain('CVD');
+  });
+
+  it('keeps the prevalence figure inside the limits of its source', () => {
+    // Birch surveyed how the rate varies between populations, so the European
+    // figure must not be quoted as a worldwide one.
+    expect(ABOUT_TEXT).toMatch(/red-green/i);
+    expect(ABOUT_TEXT).toContain('Northern European descent');
+    expect(ABOUT_TEXT).not.toMatch(/worldwide|globally|million people/i);
+  });
+
+  it('says where the figure came from, in full and by DOI', () => {
+    expect(PREVALENCE_SOURCE.short).toBe('Birch, 2012');
+    expect(PREVALENCE_SOURCE.full).toContain('Birch, J. (2012)');
+    expect(PREVALENCE_SOURCE.full).toContain(
+      'Journal of the Optical Society of America A',
+    );
+    expect(PREVALENCE_SOURCE.doi).toBe('https://doi.org/10.1364/JOSAA.29.000313');
   });
 });
 

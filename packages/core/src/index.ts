@@ -60,6 +60,7 @@ export {
 export type { PlainSummary, VerdictLevel } from './export/language.js';
 export {
   ABOUT_TEXT,
+  PREVALENCE_SOURCE,
   TOOL_NAME,
   TOOL_VERSION,
   VISION_MODE_AUDIENCE,

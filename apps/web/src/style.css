@@ -1604,13 +1604,14 @@ body:has(.app[data-view='landing']) {
   gap: 14px;
 }
 
+/* These two labels are the whole caption: without them the strip is just
+   colours, and with them it is an argument. They are sized to be read. */
 .hero-row-label {
   margin: 0 0 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--ink-3);
+  letter-spacing: 0.01em;
+  color: var(--ink);
 }
 
 /* Two pixels of surface between chips: the point of the second row is that
@@ -1743,6 +1744,11 @@ body:has(.app[data-view='landing']) {
   margin: 0;
 }
 
+.landing-foot-name {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
 .landing-foot-note {
   margin-top: 4px !important;
   max-width: 62ch;
@@ -1792,6 +1798,15 @@ body:has(.app[data-view='landing']) {
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--ink-2);
+}
+
+.fact-cite {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.fact-cite:hover {
+  text-decoration: none;
 }
 
 /* While an uploaded style is still being read there is nothing to cover the
