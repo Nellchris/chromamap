@@ -55,18 +55,21 @@ flattens first.
 
 ## What the audit found
 
+Judgements that failed, per vision mode, measured over the map's own
+background (`#f2efe9`) rather than paper white:
+
 | | Baseline | Remediated |
 | --- | --- | --- |
-| Normal vision | 2 | 1 |
-| Protanopia | 11 | 2 |
-| Deuteranopia | 6 | 2 |
-| Tritanopia | 3 | 1 |
+| Normal vision | 1 | 0 |
+| Protanopia | 10 | 1 |
+| Deuteranopia | 5 | 1 |
+| Tritanopia | 2 | 0 |
 | **Confusable pairs** | **12** | **1** |
 
-Eleven of the twenty-two failing judgements are under protanopia: the three
-reds of the commercial ramp, which carry most of Midtown and all of Lower
-Manhattan. Two failures are under **normal vision** — colour blindness is not
-needed to find those; the palette simply puts two districts too close together.
+Ten of the eighteen failing judgements are under protanopia: the three reds of
+the commercial ramp, which carry most of Midtown and all of Lower Manhattan.
+One failure is under **normal vision** — colour blindness is not needed to find
+that one; the palette simply puts two districts too close together.
 
 With thirteen colours this palette sits right at the ceiling where remediation
 can still do most of its work, and it takes twelve clashes down to one.

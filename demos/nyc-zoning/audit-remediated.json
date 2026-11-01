@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-10-30T23:30:45.246Z",
+  "timestamp": "2026-11-01T10:35:41.333Z",
   "styleSource": "demos/nyc-zoning/styles/remediated.json",
   "options": {
     "background": [
-      1,
-      1,
-      1
+      0.9490196078431372,
+      0.9372549019607843,
+      0.9137254901960784
     ],
     "threshold": 10,
     "modes": [
@@ -17,12 +17,12 @@
   },
   "summary": {
     "total": 312,
-    "failing": 6,
+    "failing": 2,
     "byMode": {
-      "normal": 1,
-      "protan": 2,
-      "deutan": 2,
-      "tritan": 1
+      "normal": 0,
+      "protan": 1,
+      "deutan": 1,
+      "tritan": 0
     }
   },
   "classes": [
@@ -162,43 +162,15 @@
       "classA": "zoning-districts/C1-C2",
       "classB": "zoning-districts/BPC",
       "mode": "protan",
-      "dE": 1.4563439210408657,
-      "contrast": 1.0295213839284387
+      "dE": 1.452267262365657,
+      "contrast": 1.030480317046783
     },
     {
       "classA": "zoning-districts/C1-C2",
       "classB": "zoning-districts/BPC",
       "mode": "deutan",
-      "dE": 5.909695558888734,
-      "contrast": 1.217908256576666
-    },
-    {
-      "classA": "zoning-districts/default",
-      "classB": "district-outlines",
-      "mode": "protan",
-      "dE": 9.902489624875859,
-      "contrast": 1.49414662934144
-    },
-    {
-      "classA": "zoning-districts/default",
-      "classB": "district-outlines",
-      "mode": "normal",
-      "dE": 9.902489635804839,
-      "contrast": 1.4941466162358987
-    },
-    {
-      "classA": "zoning-districts/default",
-      "classB": "district-outlines",
-      "mode": "tritan",
-      "dE": 9.902489635804839,
-      "contrast": 1.4941466162358987
-    },
-    {
-      "classA": "zoning-districts/default",
-      "classB": "district-outlines",
-      "mode": "deutan",
-      "dE": 9.902489668857482,
-      "contrast": 1.4941465765986943
+      "dE": 6.003365975633,
+      "contrast": 1.2216470865547076
     }
   ]
 }

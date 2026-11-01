@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-10-30T23:30:44.825Z",
+  "timestamp": "2026-11-01T10:35:40.973Z",
   "styleSource": "demos/nyc-zoning/styles/baseline.json",
   "options": {
     "background": [
-      1,
-      1,
-      1
+      0.9490196078431372,
+      0.9372549019607843,
+      0.9137254901960784
     ],
     "threshold": 10,
     "modes": [
@@ -17,12 +17,12 @@
   },
   "summary": {
     "total": 312,
-    "failing": 22,
+    "failing": 18,
     "byMode": {
-      "normal": 2,
-      "protan": 11,
-      "deutan": 6,
-      "tritan": 3
+      "normal": 1,
+      "protan": 10,
+      "deutan": 5,
+      "tritan": 2
     }
   },
   "classes": [
@@ -162,155 +162,127 @@
       "classA": "zoning-districts/BPC",
       "classB": "district-outlines",
       "mode": "protan",
-      "dE": 3.0866615536256212,
-      "contrast": 1.0983358215532086
+      "dE": 3.899161347922976,
+      "contrast": 1.1637634897285616
     },
     {
       "classA": "zoning-districts/C1-C2",
       "classB": "zoning-districts/BPC",
       "mode": "protan",
-      "dE": 4.0046638346821695,
-      "contrast": 1.0283475995109557
-    },
-    {
-      "classA": "zoning-districts/BPC",
-      "classB": "district-outlines",
-      "mode": "deutan",
-      "dE": 4.301665478357688,
-      "contrast": 1.025410695573689
+      "dE": 3.967390545293828,
+      "contrast": 1.0293324876498384
     },
     {
       "classA": "zoning-districts/R8-R10",
       "classB": "zoning-districts/C1-C2",
       "mode": "tritan",
-      "dE": 5.204242662520201,
-      "contrast": 1.0182027849178497
+      "dE": 5.07756828850556,
+      "contrast": 1.0163757088179455
     },
     {
       "classA": "zoning-districts/R6-R7",
       "classB": "zoning-districts/R8-R10",
       "mode": "deutan",
-      "dE": 5.304063801231593,
-      "contrast": 1.2449589923428375
+      "dE": 5.327718912261542,
+      "contrast": 1.2463273976409905
+    },
+    {
+      "classA": "zoning-districts/BPC",
+      "classB": "district-outlines",
+      "mode": "deutan",
+      "dE": 5.518888386998772,
+      "contrast": 1.0292797303822228
     },
     {
       "classA": "zoning-districts/R3-R5",
       "classB": "zoning-districts/PARK",
       "mode": "protan",
-      "dE": 6.198831096599398,
-      "contrast": 1.2581070150381113
+      "dE": 6.323826028953747,
+      "contrast": 1.267096176096202
     },
     {
       "classA": "zoning-districts/C1-C2",
       "classB": "district-outlines",
       "mode": "protan",
-      "dE": 6.675934359654606,
-      "contrast": 1.1294710055511354
+      "dE": 6.640382998850773,
+      "contrast": 1.1978995679183577
     },
     {
       "classA": "zoning-districts/R6-R7",
       "classB": "zoning-districts/R8-R10",
       "mode": "protan",
-      "dE": 7.188164283185343,
-      "contrast": 1.3478154292425957
+      "dE": 7.246322456597481,
+      "contrast": 1.3499848781774335
+    },
+    {
+      "classA": "zoning-districts/R3-R5",
+      "classB": "zoning-districts/R6-R7",
+      "mode": "deutan",
+      "dE": 7.60199627585903,
+      "contrast": 1.1578153481026028
     },
     {
       "classA": "zoning-districts/BPC",
       "classB": "zoning-districts/default",
       "mode": "protan",
-      "dE": 7.768235646301243,
-      "contrast": 1.364283944057836
-    },
-    {
-      "classA": "zoning-districts/R3-R5",
-      "classB": "zoning-districts/R6-R7",
-      "mode": "deutan",
-      "dE": 7.868748576357307,
-      "contrast": 1.151828176524851
+      "dE": 7.846684239283881,
+      "contrast": 1.3681777466539
     },
     {
       "classA": "zoning-districts/R3-R5",
       "classB": "zoning-districts/R6-R7",
       "mode": "protan",
-      "dE": 8.659033279957919,
-      "contrast": 1.223768170627326
-    },
-    {
-      "classA": "zoning-districts/R3-R5",
-      "classB": "zoning-districts/PARK",
-      "mode": "deutan",
-      "dE": 8.767962788882333,
-      "contrast": 1.3634421601756557
+      "dE": 8.537849689316138,
+      "contrast": 1.2311105338129757
     },
     {
       "classA": "zoning-districts/C1-C2",
       "classB": "zoning-districts/PARK",
       "mode": "deutan",
-      "dE": 8.860718898018938,
-      "contrast": 1.0782652620377688
+      "dE": 8.721586266612492,
+      "contrast": 1.0779581614856881
+    },
+    {
+      "classA": "zoning-districts/R3-R5",
+      "classB": "zoning-districts/PARK",
+      "mode": "deutan",
+      "dE": 8.83924965815934,
+      "contrast": 1.3735323837828781
     },
     {
       "classA": "zoning-districts/C1-C2",
       "classB": "zoning-districts/default",
       "mode": "protan",
-      "dE": 9.054625445135063,
-      "contrast": 1.3266758678744806
+      "dE": 9.059804563590822,
+      "contrast": 1.3291893174164837
     },
     {
       "classA": "zoning-districts/R3-R5",
       "classB": "zoning-districts/R6-R7",
       "mode": "normal",
-      "dE": 9.415150204035383,
-      "contrast": 1.1927191559767367
+      "dE": 9.384517574096142,
+      "contrast": 1.1937500785951878
     },
     {
       "classA": "zoning-districts/C3-C6",
       "classB": "zoning-districts/C7-C8",
       "mode": "protan",
-      "dE": 9.50491395934191,
-      "contrast": 1.4137882836640638
-    },
-    {
-      "classA": "zoning-districts/default",
-      "classB": "district-outlines",
-      "mode": "protan",
-      "dE": 9.797326405075713,
-      "contrast": 1.4984419265286149
-    },
-    {
-      "classA": "zoning-districts/default",
-      "classB": "district-outlines",
-      "mode": "normal",
-      "dE": 9.797326411169843,
-      "contrast": 1.4984419152819028
-    },
-    {
-      "classA": "zoning-districts/default",
-      "classB": "district-outlines",
-      "mode": "tritan",
-      "dE": 9.797326411169843,
-      "contrast": 1.4984419152819026
-    },
-    {
-      "classA": "zoning-districts/default",
-      "classB": "district-outlines",
-      "mode": "deutan",
-      "dE": 9.797326429606532,
-      "contrast": 1.4984418812666551
+      "dE": 9.467688190205514,
+      "contrast": 1.4196212758448234
     },
     {
       "classA": "zoning-districts/R3-R5",
       "classB": "zoning-districts/R6-R7",
       "mode": "tritan",
-      "dE": 9.8315038249971,
-      "contrast": 1.2235637416642797
+      "dE": 9.557422394356996,
+      "contrast": 1.2233917784428696
     },
     {
       "classA": "zoning-districts/R6-R7",
       "classB": "zoning-districts/PARK",
       "mode": "protan",
-      "dE": 9.884786316454191,
-      "contrast": 1.0280599260832077
+      "dE": 9.794805785458921,
+      "contrast": 1.029230228557766
     }
   ]
 }
