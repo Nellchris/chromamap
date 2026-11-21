@@ -38,7 +38,7 @@ Export technical audit report (HTML)
 Fully client-side — uploaded files never leave your browser
 Mobile responsive
 
-#Built with
+# Built with
 TypeScript, Vite, MapLibre GL JS, Vitest
 
 # Author
